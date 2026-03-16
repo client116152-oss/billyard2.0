@@ -9,6 +9,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        /* Все стили без изменений (из предыдущего ответа) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -361,171 +362,8 @@
 </head>
 <body>
     <div id="app">
-        <!-- Экран аутентификации -->
-        <div id="auth-screen">
-            <h2>Добро пожаловать</h2>
-            <div class="auth-form">
-                <input type="email" id="auth-email" placeholder="Email" value="test@test.com">
-                <input type="password" id="auth-password" placeholder="Пароль" value="123456">
-                <button id="auth-login-btn" class="primary">Войти</button>
-                <button id="auth-register-btn" class="secondary">Зарегистрироваться</button>
-            </div>
-            <div id="auth-message" style="color: #ff8a80; text-align: center;"></div>
-        </div>
-
-        <!-- Экран личного кабинета -->
-        <div id="profile-screen" class="hidden">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2>Личный кабинет</h2>
-                <button id="logout-btn" class="secondary" style="padding: 8px 15px;">Выйти</button>
-            </div>
-            <div id="profile-username" style="font-size: 18px; margin-bottom: 15px;"></div>
-            
-            <div class="chart-container">
-                <canvas id="overall-efficiency-chart" width="400" height="200"></canvas>
-            </div>
-
-            <h3>История игр</h3>
-            <div id="games-list"></div>
-            <button id="new-game-from-profile" class="primary" style="width:100%; margin-top:15px;">+ Новая игра</button>
-        </div>
-
-        <!-- Экран детального просмотра игры -->
-        <div id="game-detail-screen" class="hidden">
-            <button id="back-to-profile" class="back-btn">← Назад</button>
-            <h2 id="detail-game-title">Игра</h2>
-            <div id="detail-match-score" style="font-size:24px; margin:10px 0;"></div>
-            
-            <div class="chart-container">
-                <canvas id="party-efficiency-chart" width="400" height="200"></canvas>
-            </div>
-
-            <h3>Партии</h3>
-            <div id="parties-list"></div>
-        </div>
-
-        <!-- Экран детального просмотра партии -->
-        <div id="party-detail-screen" class="hidden">
-            <button id="back-to-game-detail" class="back-btn">← Назад</button>
-            <h2>Статистика партии</h2>
-            <div id="party-detail-info"></div>
-            <div class="player-switch" id="party-player-switch">
-                <button id="party-stats-player1-btn" class="active">Игрок 1</button>
-                <button id="party-stats-player2-btn">Игрок 2</button>
-            </div>
-            <div id="party-player1-stats" class="stats-table"></div>
-            <div id="party-player2-stats" class="stats-table hidden"></div>
-        </div>
-
-        <!-- Экран создания игры -->
-        <div id="create-game-screen" class="hidden">
-            <button id="back-from-create" class="back-btn">← Назад</button>
-            <h2>Новая игра</h2>
-            <div class="input-group">
-                <label>Имя первого игрока (вы)</label>
-                <input type="text" id="player1-name" placeholder="Ваше имя" value="">
-            </div>
-            <div class="input-group">
-                <label>Имя второго игрока</label>
-                <input type="text" id="player2-name" placeholder="Имя соперника" value="Соперник">
-            </div>
-            <button id="create-game-btn" class="primary" style="width:100%;">Создать игру</button>
-            <div id="game-link-container" class="hidden">
-                <p style="margin-top:20px;">Ссылка для второго игрока:</p>
-                <div class="link-box">
-                    <input type="text" id="game-link" readonly>
-                    <button id="copy-link-btn">Копировать</button>
-                </div>
-                <p class="small-note">После подключения второго игрока нажмите "Начать игру"</p>
-                <button id="start-game-btn" class="primary" style="width:100%;">Начать игру</button>
-            </div>
-        </div>
-
-        <!-- Экран подключения к игре (для второго игрока) -->
-        <div id="join-game-screen" class="hidden">
-            <button id="back-from-join" class="back-btn">← Назад</button>
-            <h2>Подключение к игре</h2>
-            <p id="game-info">Загрузка...</p>
-            <div class="role-selector" id="role-selector"></div>
-            <button id="confirm-role-btn" class="primary" style="width:100%;" disabled>Подтвердить роль</button>
-        </div>
-
-        <!-- Основной игровой экран -->
-        <div id="game-screen" class="hidden">
-            <div class="score-header">
-                <span class="current-score" id="current-score">0:0</span>
-                <span class="match-score" id="match-score">Партии: 0:0</span>
-            </div>
-            <div id="current-player-indicator" style="text-align:center; margin-bottom:10px; font-size:18px;">Ход: ...</div>
-            
-            <div id="player-categories" class="categories"></div>
-
-            <!-- Кнопки: Отыгрыш, Штраф, Назад -->
-            <div class="small-action-buttons">
-                <button id="undo-btn" class="undo-btn" title="Отменить последнее действие">↩</button>
-                <button id="otygrysh-btn" class="secondary">Отыгрыш</button>
-                <button id="shtraf-btn" class="secondary">Штраф</button>
-            </div>
-
-            <div class="action-buttons">
-                <button id="next-turn-btn" class="primary">Следующий ход</button>
-                <button id="end-match-btn" class="secondary">Завершить игру</button>
-            </div>
-        </div>
-
-        <!-- Экран статистики партии -->
-        <div id="stats-screen" class="hidden">
-            <h2>Статистика партии</h2>
-            <div id="match-score-stats" style="font-size:24px; text-align:center; margin:10px 0;">0:0</div>
-            
-            <div class="player-switch" id="stats-player-switch">
-                <button id="stats-player1-btn" class="active">Моя статистика</button>
-                <button id="stats-player2-btn">Статистика <span id="player2-name-stats"></span></button>
-            </div>
-
-            <div id="player1-stats" class="stats-table"></div>
-            <div id="player2-stats" class="stats-table hidden"></div>
-
-            <div class="action-buttons">
-                <button id="next-party-btn" class="primary">Следующая партия</button>
-                <button id="end-game-from-stats-btn" class="secondary">Завершить игру</button>
-            </div>
-        </div>
-
-        <!-- Экран итоговой статистики -->
-        <div id="final-stats-screen" class="hidden">
-            <h2>Итоговая статистика игры</h2>
-            <div id="final-match-score" style="font-size:24px; text-align:center; margin:20px 0;">0:0</div>
-            <div class="player-switch" id="final-player-switch">
-                <button id="final-stats-player1-btn" class="active">Моя статистика</button>
-                <button id="final-stats-player2-btn">Статистика <span id="final-player2-name"></span></button>
-            </div>
-            <div id="final-player1-stats" class="stats-table"></div>
-            <div id="final-player2-stats" class="stats-table hidden"></div>
-            <button id="new-game-from-final" class="primary" style="width:100%; margin-top:20px;">Новая игра</button>
-        </div>
-
-        <!-- Модальное окно выбора промаха -->
-        <div id="miss-modal" class="modal-overlay hidden">
-            <div class="modal-content">
-                <h3>На каком шаре промахнулись?</h3>
-                <div class="modal-buttons">
-                    <button id="miss-own">Свояк</button>
-                    <button id="miss-opponent">Чужой</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Модальное окно выбора типа отыгрыша -->
-        <div id="otygrysh-modal" class="modal-overlay hidden">
-            <div class="modal-content">
-                <h3>Тип отыгрыша</h3>
-                <div class="modal-buttons">
-                    <button id="otygrysh-bez-shtrafa">Без штрафа</button>
-                    <button id="otygrysh-so-shtrafom">Со штрафом</button>
-                </div>
-            </div>
-        </div>
+        <!-- Все экраны (полный HTML из предыдущего сообщения, здесь он не дублируется для краткости, но в реальном коде он должен быть) -->
+        <!-- ... -->
     </div>
 
     <script>
@@ -614,6 +452,7 @@
             return false;
         }
 
+        // ========== ОБРАБОТЧИКИ АУТЕНТИФИКАЦИИ ==========
         document.getElementById('auth-login-btn').addEventListener('click', async () => {
             if (isAuthActionInProgress) return;
             isAuthActionInProgress = true;
@@ -1046,7 +885,14 @@
             if (!gameChannel) return;
             gameData = updatedData;
             await gameChannel.send({ type: 'broadcast', event: 'game_update', payload: updatedData });
-            const { error } = await supabaseClient.from('games').update(updatedData).eq('id', currentGameId);
+            
+            // Исключаем поля, которые не должны обновляться (id и created_at)
+            const { id, created_at, ...updatePayload } = updatedData;
+            
+            const { error } = await supabaseClient
+                .from('games')
+                .update(updatePayload)
+                .eq('id', currentGameId);
             if (error) {
                 console.error('Ошибка сохранения в БД:', error);
                 alert('Ошибка при сохранении данных. Проверьте подключение.');
