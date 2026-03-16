@@ -460,7 +460,7 @@
             
             <div id="player-categories" class="categories"></div>
 
-            <!-- Новые кнопки: Отыгрыш, Штраф, Назад -->
+            <!-- Кнопки: Отыгрыш, Штраф, Назад -->
             <div class="small-action-buttons">
                 <button id="undo-btn" class="undo-btn" title="Отменить последнее действие">↩</button>
                 <button id="otygrysh-btn" class="secondary">Отыгрыш</button>
@@ -700,8 +700,10 @@
                 const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
                 let efficiency = '0%';
                 if (stats) {
-                    const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0) + (stats.shtraf?.shots||0);
-                    const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0) + (stats.otygrysh?.made||0);
+                    // Общее количество ударов: только категории ударов (break, own, opponent, random, otygrysh)
+                    const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0);
+                    // Забитые шары: только break, own, opponent, random (отыгрыши не забивают шары)
+                    const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0);
                     efficiency = totalShots > 0 ? ((totalMade / totalShots) * 100).toFixed(1) + '%' : '0%';
                 }
                 
@@ -727,8 +729,8 @@
             const data = games.map(game => {
                 const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
                 if (!stats) return 0;
-                const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0) + (stats.shtraf?.shots||0);
-                const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0) + (stats.otygrysh?.made||0);
+                const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0);
+                const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0);
                 return totalShots > 0 ? (totalMade / totalShots * 100).toFixed(1) : 0;
             });
 
@@ -793,8 +795,8 @@
             const labels = parties.map(p => `Партия ${p.party_number}`);
             const data = parties.map(p => {
                 const stats = isMeP1 ? p.stats_p1 : p.stats_p2;
-                const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0)+(stats.shtraf?.shots||0);
-                const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0)+(stats.otygrysh?.made||0);
+                const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0);
+                const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0);
                 return totalShots > 0 ? (totalMade / totalShots * 100).toFixed(1) : 0;
             });
 
@@ -897,11 +899,11 @@
                 const stat = stats[cat.key] || { shots:0, made:0 };
                 let display;
                 if (cat.key === 'otygrysh') {
-                    display = `${stat.made}/${stat.shots}`;
+                    display = `${stat.made}/${stat.shots}`; // без штрафа / всего
                 } else {
                     display = `${stat.made}/${stat.shots}`;
                 }
-                const efficiency = cat.key === 'otygrysh' ? '' : (stat.shots > 0 ? ` (${((stat.made / stat.shots) * 100).toFixed(1)}%)` : ' (0%)');
+                const efficiency = (cat.key === 'otygrysh' || cat.key === 'shtraf') ? '' : (stat.shots > 0 ? ` (${((stat.made / stat.shots) * 100).toFixed(1)}%)` : ' (0%)');
                 html += `
                     <div class="stats-row">
                         <span>${cat.name}:</span>
@@ -909,8 +911,9 @@
                     </div>
                 `;
             }
-            const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0)+(stats.shtraf?.shots||0);
-            const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0)+(stats.otygrysh?.made||0);
+            // Общая результативность: только забитые шары (break, own, opponent, random) к общему числу ударов (включая отыгрыши)
+            const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0);
+            const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0);
             const totalEfficiency = totalShots > 0 ? ((totalMade / totalShots) * 100).toFixed(1) : '0.0';
             html += `<div class="stats-row"><span>Общая результативность:</span><span>${totalMade}/${totalShots} (${totalEfficiency}%)</span></div>`;
             container.innerHTML = html;
@@ -1131,6 +1134,7 @@
                 stats_p2: updatedData.party.stats.p2
             });
 
+            // Добавляем статистику партии в общую (включая отыгрыши, но не штрафы)
             for (let p of ['p1', 'p2']) {
                 for (let cat of ['break','own','opponent','random','otygrysh','shtraf']) {
                     updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
