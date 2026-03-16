@@ -9,7 +9,6 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        /* Все стили без изменений (из предыдущего ответа) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -362,10 +361,171 @@
 </head>
 <body>
     <div id="app">
-        <!-- Все экраны без изменений (см. предыдущий полный код) -->
-        <!-- Здесь должен быть полный HTML из предыдущего сообщения -->
-        <!-- Для краткости я не буду дублировать весь HTML, но он точно такой же, как в предыдущем ответе, включая stats-screen и т.д. -->
-        <!-- В реальном проекте вы скопируете полный код из предыдущего сообщения и замените скрипт ниже. -->
+        <!-- Экран аутентификации -->
+        <div id="auth-screen">
+            <h2>Добро пожаловать</h2>
+            <div class="auth-form">
+                <input type="email" id="auth-email" placeholder="Email" value="test@test.com">
+                <input type="password" id="auth-password" placeholder="Пароль" value="123456">
+                <button id="auth-login-btn" class="primary">Войти</button>
+                <button id="auth-register-btn" class="secondary">Зарегистрироваться</button>
+            </div>
+            <div id="auth-message" style="color: #ff8a80; text-align: center;"></div>
+        </div>
+
+        <!-- Экран личного кабинета -->
+        <div id="profile-screen" class="hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>Личный кабинет</h2>
+                <button id="logout-btn" class="secondary" style="padding: 8px 15px;">Выйти</button>
+            </div>
+            <div id="profile-username" style="font-size: 18px; margin-bottom: 15px;"></div>
+            
+            <div class="chart-container">
+                <canvas id="overall-efficiency-chart" width="400" height="200"></canvas>
+            </div>
+
+            <h3>История игр</h3>
+            <div id="games-list"></div>
+            <button id="new-game-from-profile" class="primary" style="width:100%; margin-top:15px;">+ Новая игра</button>
+        </div>
+
+        <!-- Экран детального просмотра игры -->
+        <div id="game-detail-screen" class="hidden">
+            <button id="back-to-profile" class="back-btn">← Назад</button>
+            <h2 id="detail-game-title">Игра</h2>
+            <div id="detail-match-score" style="font-size:24px; margin:10px 0;"></div>
+            
+            <div class="chart-container">
+                <canvas id="party-efficiency-chart" width="400" height="200"></canvas>
+            </div>
+
+            <h3>Партии</h3>
+            <div id="parties-list"></div>
+        </div>
+
+        <!-- Экран детального просмотра партии -->
+        <div id="party-detail-screen" class="hidden">
+            <button id="back-to-game-detail" class="back-btn">← Назад</button>
+            <h2>Статистика партии</h2>
+            <div id="party-detail-info"></div>
+            <div class="player-switch" id="party-player-switch">
+                <button id="party-stats-player1-btn" class="active">Игрок 1</button>
+                <button id="party-stats-player2-btn">Игрок 2</button>
+            </div>
+            <div id="party-player1-stats" class="stats-table"></div>
+            <div id="party-player2-stats" class="stats-table hidden"></div>
+        </div>
+
+        <!-- Экран создания игры -->
+        <div id="create-game-screen" class="hidden">
+            <button id="back-from-create" class="back-btn">← Назад</button>
+            <h2>Новая игра</h2>
+            <div class="input-group">
+                <label>Имя первого игрока (вы)</label>
+                <input type="text" id="player1-name" placeholder="Ваше имя" value="">
+            </div>
+            <div class="input-group">
+                <label>Имя второго игрока</label>
+                <input type="text" id="player2-name" placeholder="Имя соперника" value="Соперник">
+            </div>
+            <button id="create-game-btn" class="primary" style="width:100%;">Создать игру</button>
+            <div id="game-link-container" class="hidden">
+                <p style="margin-top:20px;">Ссылка для второго игрока:</p>
+                <div class="link-box">
+                    <input type="text" id="game-link" readonly>
+                    <button id="copy-link-btn">Копировать</button>
+                </div>
+                <p class="small-note">После подключения второго игрока нажмите "Начать игру"</p>
+                <button id="start-game-btn" class="primary" style="width:100%;">Начать игру</button>
+            </div>
+        </div>
+
+        <!-- Экран подключения к игре (для второго игрока) -->
+        <div id="join-game-screen" class="hidden">
+            <button id="back-from-join" class="back-btn">← Назад</button>
+            <h2>Подключение к игре</h2>
+            <p id="game-info">Загрузка...</p>
+            <div class="role-selector" id="role-selector"></div>
+            <button id="confirm-role-btn" class="primary" style="width:100%;" disabled>Подтвердить роль</button>
+        </div>
+
+        <!-- Основной игровой экран -->
+        <div id="game-screen" class="hidden">
+            <div class="score-header">
+                <span class="current-score" id="current-score">0:0</span>
+                <span class="match-score" id="match-score">Партии: 0:0</span>
+            </div>
+            <div id="current-player-indicator" style="text-align:center; margin-bottom:10px; font-size:18px;">Ход: ...</div>
+            
+            <div id="player-categories" class="categories"></div>
+
+            <!-- Кнопки: Отыгрыш, Штраф, Назад -->
+            <div class="small-action-buttons">
+                <button id="undo-btn" class="undo-btn" title="Отменить последнее действие">↩</button>
+                <button id="otygrysh-btn" class="secondary">Отыгрыш</button>
+                <button id="shtraf-btn" class="secondary">Штраф</button>
+            </div>
+
+            <div class="action-buttons">
+                <button id="next-turn-btn" class="primary">Следующий ход</button>
+                <button id="end-match-btn" class="secondary">Завершить игру</button>
+            </div>
+        </div>
+
+        <!-- Экран статистики партии -->
+        <div id="stats-screen" class="hidden">
+            <h2>Статистика партии</h2>
+            <div id="match-score-stats" style="font-size:24px; text-align:center; margin:10px 0;">0:0</div>
+            
+            <div class="player-switch" id="stats-player-switch">
+                <button id="stats-player1-btn" class="active">Моя статистика</button>
+                <button id="stats-player2-btn">Статистика <span id="player2-name-stats"></span></button>
+            </div>
+
+            <div id="player1-stats" class="stats-table"></div>
+            <div id="player2-stats" class="stats-table hidden"></div>
+
+            <div class="action-buttons">
+                <button id="next-party-btn" class="primary">Следующая партия</button>
+                <button id="end-game-from-stats-btn" class="secondary">Завершить игру</button>
+            </div>
+        </div>
+
+        <!-- Экран итоговой статистики -->
+        <div id="final-stats-screen" class="hidden">
+            <h2>Итоговая статистика игры</h2>
+            <div id="final-match-score" style="font-size:24px; text-align:center; margin:20px 0;">0:0</div>
+            <div class="player-switch" id="final-player-switch">
+                <button id="final-stats-player1-btn" class="active">Моя статистика</button>
+                <button id="final-stats-player2-btn">Статистика <span id="final-player2-name"></span></button>
+            </div>
+            <div id="final-player1-stats" class="stats-table"></div>
+            <div id="final-player2-stats" class="stats-table hidden"></div>
+            <button id="new-game-from-final" class="primary" style="width:100%; margin-top:20px;">Новая игра</button>
+        </div>
+
+        <!-- Модальное окно выбора промаха -->
+        <div id="miss-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>На каком шаре промахнулись?</h3>
+                <div class="modal-buttons">
+                    <button id="miss-own">Свояк</button>
+                    <button id="miss-opponent">Чужой</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно выбора типа отыгрыша -->
+        <div id="otygrysh-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Тип отыгрыша</h3>
+                <div class="modal-buttons">
+                    <button id="otygrysh-bez-shtrafa">Без штрафа</button>
+                    <button id="otygrysh-so-shtrafom">Со штрафом</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -378,7 +538,7 @@
         // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
         let currentUser = null;
         let currentGameId = null;
-        let currentPlayerRole = null;
+        let currentPlayerRole = null; // 'p1' или 'p2'
         let gameChannel = null;
         let gameData = null;
         let chartOverall = null;
@@ -391,14 +551,117 @@
         let lastGameState = null;
 
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
-        function getGameIdFromUrl() { /* ... */ }
-        function updateUrlWithGameId(gameId) { /* ... */ }
-        function showScreen(screenId) { /* ... */ }
-        function generateGameId() { /* ... */ }
+        function getGameIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('game');
+        }
+
+        function updateUrlWithGameId(gameId) {
+            const url = new URL(window.location);
+            if (gameId) url.searchParams.set('game', gameId);
+            else url.searchParams.delete('game');
+            window.history.pushState({}, '', url);
+        }
+
+        function showScreen(screenId) {
+            const screen = document.getElementById(screenId);
+            if (!screen) {
+                console.error(`Экран с id "${screenId}" не найден в DOM`);
+                return;
+            }
+            const screens = ['auth-screen', 'profile-screen', 'game-detail-screen', 'party-detail-screen', 
+                            'create-game-screen', 'join-game-screen', 'game-screen', 'stats-screen', 'final-stats-screen'];
+            screens.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            screen.classList.remove('hidden');
+        }
+
+        function generateGameId() {
+            return Math.random().toString(36).substring(2, 10);
+        }
 
         // ========== АУТЕНТИФИКАЦИЯ ==========
-        async function checkSession() { /* ... */ }
-        // Обработчики auth-login, auth-register, logout (как в предыдущем коде)
+        async function checkSession() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                currentUser = session.user;
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .select('username')
+                    .eq('id', currentUser.id)
+                    .maybeSingle();
+
+                if (profileError && profileError.code !== 'PGRST116') {
+                    console.error('Ошибка загрузки профиля:', profileError);
+                }
+
+                if (profile) {
+                    currentUser.username = profile.username;
+                } else {
+                    const username = currentUser.email.split('@')[0];
+                    const { error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert({ id: currentUser.id, username });
+                    if (insertError) {
+                        console.error('Ошибка создания профиля:', insertError);
+                    }
+                    currentUser.username = username;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        document.getElementById('auth-login-btn').addEventListener('click', async () => {
+            if (isAuthActionInProgress) return;
+            isAuthActionInProgress = true;
+            document.getElementById('auth-login-btn').disabled = true;
+            document.getElementById('auth-register-btn').disabled = true;
+
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            
+            if (error) {
+                document.getElementById('auth-message').textContent = error.message;
+            } else {
+                await checkSession();
+                loadProfileScreen();
+            }
+
+            document.getElementById('auth-login-btn').disabled = false;
+            document.getElementById('auth-register-btn').disabled = false;
+            isAuthActionInProgress = false;
+        });
+
+        document.getElementById('auth-register-btn').addEventListener('click', async () => {
+            if (isAuthActionInProgress) return;
+            isAuthActionInProgress = true;
+            document.getElementById('auth-login-btn').disabled = true;
+            document.getElementById('auth-register-btn').disabled = true;
+
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const { error } = await supabaseClient.auth.signUp({ email, password });
+            
+            if (error) {
+                document.getElementById('auth-message').textContent = error.message;
+            } else {
+                alert('Регистрация успешна! Теперь войдите.');
+            }
+
+            document.getElementById('auth-login-btn').disabled = false;
+            document.getElementById('auth-register-btn').disabled = false;
+            isAuthActionInProgress = false;
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            await supabaseClient.auth.signOut();
+            currentUser = null;
+            showScreen('auth-screen');
+        });
 
         // ========== ЛИЧНЫЙ КАБИНЕТ ==========
         async function loadProfileScreen() {
@@ -435,13 +698,10 @@
                 const myWins = game.player1_id === currentUser.id ? game.match_wins_p1 : game.match_wins_p2;
                 const oppWins = game.player1_id === currentUser.id ? game.match_wins_p2 : game.match_wins_p1;
                 
-                // Расчет результативности текущего игрока в этой игре из total_stats
                 const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
                 let efficiency = '0%';
                 if (stats) {
-                    // Общее количество ударов: все категории, кроме штрафов (штрафы не удары)
                     const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0);
-                    // Забитые шары: только break, own, opponent, random
                     const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0);
                     efficiency = totalShots > 0 ? ((totalMade / totalShots) * 100).toFixed(1) + '%' : '0%';
                 }
@@ -638,7 +898,7 @@
                 const stat = stats[cat.key] || { shots:0, made:0 };
                 let display;
                 if (cat.key === 'otygrysh') {
-                    display = `${stat.made}/${stat.shots}`; // без штрафа / всего
+                    display = `${stat.made}/${stat.shots}`;
                 } else {
                     display = `${stat.made}/${stat.shots}`;
                 }
@@ -785,9 +1045,7 @@
         async function broadcastUpdate(updatedData) {
             if (!gameChannel) return;
             gameData = updatedData;
-            // Сначала отправляем broadcast
             await gameChannel.send({ type: 'broadcast', event: 'game_update', payload: updatedData });
-            // Затем сохраняем в БД
             const { error } = await supabaseClient.from('games').update(updatedData).eq('id', currentGameId);
             if (error) {
                 console.error('Ошибка сохранения в БД:', error);
@@ -884,7 +1142,6 @@
                 return;
             }
 
-            // Добавляем статистику партии в общую
             for (let p of ['p1', 'p2']) {
                 for (let cat of ['break','own','opponent','random','otygrysh','shtraf']) {
                     updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
