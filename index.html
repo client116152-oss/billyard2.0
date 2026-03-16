@@ -9,6 +9,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        /* Все стили остаются без изменений (из предыдущего ответа) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -490,7 +491,7 @@
         const SUPABASE_URL = 'https://yldxaouqbhxgcojydrmj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZHhhb3VxYmh4Z2Nvanlkcm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NTI0NTgsImV4cCI6MjA4OTIyODQ1OH0.RSlOz8y591wMbMH-V7swnXJBzku3CuUiSdkVrqrUCG4';
         
-        // Используем другое имя для клиента, чтобы не конфликтовать с глобальной переменной supabase
+        // Инициализация клиента Supabase
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
@@ -543,16 +544,29 @@
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 currentUser = session.user;
-                const { data: profile } = await supabaseClient
+                // Загружаем профиль, если есть
+                const { data: profile, error: profileError } = await supabaseClient
                     .from('profiles')
                     .select('username')
                     .eq('id', currentUser.id)
-                    .single();
+                    .maybeSingle(); // используем maybeSingle вместо single
+
+                // Игнорируем ошибку, если профиля нет (код PGRST116)
+                if (profileError && profileError.code !== 'PGRST116') {
+                    console.error('Ошибка загрузки профиля:', profileError);
+                }
+
                 if (profile) {
                     currentUser.username = profile.username;
                 } else {
+                    // Создаём профиль
                     const username = currentUser.email.split('@')[0];
-                    await supabaseClient.from('profiles').insert({ id: currentUser.id, username });
+                    const { error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert({ id: currentUser.id, username });
+                    if (insertError) {
+                        console.error('Ошибка создания профиля:', insertError);
+                    }
                     currentUser.username = username;
                 }
                 return true;
@@ -619,7 +633,7 @@
                 .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`)
                 .order('created_at', { ascending: false });
             
-            if (error) console.error(error);
+            if (error) console.error('Ошибка загрузки списка игр:', error);
             
             renderGamesList(games || []);
             renderOverallEfficiencyChart(games || []);
@@ -687,26 +701,34 @@
 
         // ========== ДЕТАЛИ ИГРЫ ==========
         async function loadGameDetail(gameId) {
-            const { data: game } = await supabaseClient
+            const { data: game, error: gameError } = await supabaseClient
                 .from('games')
                 .select('*')
                 .eq('id', gameId)
-                .single();
+                .maybeSingle(); // заменено с single на maybeSingle
             
-            const { data: parties } = await supabaseClient
+            if (gameError || !game) {
+                alert('Игра не найдена');
+                loadProfileScreen();
+                return;
+            }
+            
+            const { data: parties, error: partiesError } = await supabaseClient
                 .from('parties')
                 .select('*')
                 .eq('game_id', gameId)
                 .order('party_number', { ascending: true });
             
+            if (partiesError) console.error('Ошибка загрузки партий:', partiesError);
+            
             currentGameDetail = game;
-            currentParties = parties;
+            currentParties = parties || [];
             
             document.getElementById('detail-game-title').textContent = `Игра: ${game.player1_name} vs ${game.player2_name}`;
             document.getElementById('detail-match-score').textContent = `${game.match_wins_p1}:${game.match_wins_p2}`;
             
-            renderPartyEfficiencyChart(parties, game);
-            renderPartiesList(parties);
+            renderPartyEfficiencyChart(parties || [], game);
+            renderPartiesList(parties || []);
             showScreen('game-detail-screen');
         }
 
@@ -765,11 +787,16 @@
 
         // ========== ДЕТАЛИ ПАРТИИ ==========
         async function loadPartyDetail(partyId) {
-            const { data: party } = await supabaseClient
+            const { data: party, error } = await supabaseClient
                 .from('parties')
                 .select('*')
                 .eq('id', partyId)
-                .single();
+                .maybeSingle(); // заменено с single на maybeSingle
+            
+            if (error || !party) {
+                alert('Партия не найдена');
+                return;
+            }
             
             document.getElementById('party-detail-info').innerHTML = `
                 <div style="font-size:20px; margin-bottom:10px;">Партия ${party.party_number} · Счёт ${party.score_p1}:${party.score_p2}</div>
@@ -885,7 +912,7 @@
                 .from('games')
                 .select('*')
                 .eq('id', gameId)
-                .single();
+                .maybeSingle(); // заменено с single на maybeSingle
 
             if (error || !game) {
                 alert('Игра не найдена');
@@ -1051,7 +1078,7 @@
                 alert('Произошла ошибка. Попробуйте ещё раз.');
             } finally {
                 isGameActionInProgress = false;
-                // Кнопки будут перерендерены через broadcast, но на всякий случай вернём доступ позже
+                // Кнопки будут перерендерены через broadcast, так что не восстанавливаем вручную
             }
         }
 
