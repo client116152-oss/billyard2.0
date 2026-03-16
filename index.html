@@ -163,28 +163,6 @@
             min-width: 120px;
         }
 
-        .small-action-buttons {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            margin-top: 10px;
-        }
-
-        .small-action-buttons button {
-            min-width: 60px;
-            padding: 8px 12px;
-            font-size: 14px;
-            background-color: #1a261a;
-            border: 1px solid #2f4f2f;
-        }
-
-        .small-action-buttons .undo-btn {
-            background-color: #2c3e2c;
-            font-size: 18px;
-            padding: 8px 16px;
-            border-radius: 30px;
-        }
-
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -460,9 +438,8 @@
             
             <div id="player-categories" class="categories"></div>
 
-            <!-- Новые кнопки: Отыгрыш и Штраф, а также Назад -->
-            <div class="small-action-buttons">
-                <button id="undo-btn" class="undo-btn" title="Отменить последнее действие">↩</button>
+            <!-- Новые кнопки: Отыгрыш и Штраф -->
+            <div class="action-buttons" style="justify-content: center;">
                 <button id="otygrysh-btn" class="secondary">Отыгрыш</button>
                 <button id="shtraf-btn" class="secondary">Штраф</button>
             </div>
@@ -516,9 +493,6 @@
 
         let isGameActionInProgress = false;
         let isAuthActionInProgress = false;
-
-        // История для отмены последнего действия (храним предыдущее состояние)
-        let lastGameState = null;
 
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function getGameIdFromUrl() {
@@ -1050,8 +1024,6 @@
                 document.querySelectorAll('.category-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         if (isGameActionInProgress) return;
-                        // Сохраняем текущее состояние перед действием
-                        lastGameState = JSON.parse(JSON.stringify(gameData));
                         handleAddMade(e.target.dataset.category, data);
                     });
                 });
@@ -1133,9 +1105,6 @@
             
             try {
                 if (!gameData) return;
-                // Сохраняем состояние для отмены
-                lastGameState = JSON.parse(JSON.stringify(gameData));
-                
                 const updatedData = JSON.parse(JSON.stringify(gameData));
                 const player = `p${updatedData.party.currentPlayer}`;
                 
@@ -1166,9 +1135,6 @@
                 isGameActionInProgress = true;
                 
                 try {
-                    // Сохраняем состояние для отмены
-                    lastGameState = JSON.parse(JSON.stringify(gameData));
-                    
                     const updatedData = JSON.parse(JSON.stringify(gameData));
                     const player = `p${updatedData.party.currentPlayer}`;
                     
@@ -1186,38 +1152,9 @@
             } else alert('Сейчас не ваш ход');
         });
 
-        // Обработка кнопки "Назад" (отмена последнего действия)
-        document.getElementById('undo-btn').addEventListener('click', async () => {
-            if (!gameData || !lastGameState) {
-                alert('Нет действия для отмены');
-                return;
-            }
-            // Проверяем, что ход текущего игрока (или можно разрешить в любой момент?)
-            if (currentPlayerRole !== `p${gameData.party.currentPlayer}`) {
-                alert('Отмена доступна только в свой ход');
-                return;
-            }
-            if (isGameActionInProgress) return;
-            isGameActionInProgress = true;
-
-            try {
-                // Отправляем предыдущее состояние
-                await broadcastUpdate(lastGameState);
-                lastGameState = null; // сбрасываем, чтобы нельзя было откатиться дважды
-            } catch (error) {
-                console.error('Ошибка при отмене:', error);
-                alert('Ошибка при отмене действия');
-            } finally {
-                isGameActionInProgress = false;
-            }
-        });
-
         // Следующий ход
         document.getElementById('next-turn-btn').addEventListener('click', () => {
             if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
-                // Сохраняем состояние перед сменой хода? Не нужно, так как смена хода не меняет статистику, только currentPlayer.
-                // Но можно сохранить на всякий случай.
-                lastGameState = JSON.parse(JSON.stringify(gameData));
                 document.getElementById('miss-modal').classList.remove('hidden');
             } else alert('Сейчас не ваш ход');
         });
@@ -1232,9 +1169,6 @@
             
             try {
                 if (!gameData) return;
-                // Сохраняем состояние для отмены
-                lastGameState = JSON.parse(JSON.stringify(gameData));
-                
                 const updatedData = JSON.parse(JSON.stringify(gameData));
                 const player = `p${updatedData.party.currentPlayer}`;
                 updatedData.party.stats[player][shotType].shots += 1;
