@@ -9,7 +9,6 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        /* Все стили остаются без изменений (из предыдущего ответа) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -549,9 +548,8 @@
                     .from('profiles')
                     .select('username')
                     .eq('id', currentUser.id)
-                    .maybeSingle(); // используем maybeSingle вместо single
+                    .maybeSingle();
 
-                // Игнорируем ошибку, если профиля нет (код PGRST116)
                 if (profileError && profileError.code !== 'PGRST116') {
                     console.error('Ошибка загрузки профиля:', profileError);
                 }
@@ -627,11 +625,12 @@
         async function loadProfileScreen() {
             document.getElementById('profile-username').textContent = `Привет, ${currentUser.username}!`;
             
+            // Загружаем игры, сортируем по возрастанию даты (старые сначала) для графика
             const { data: games, error } = await supabaseClient
                 .from('games')
                 .select('*')
                 .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`)
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: true }); // сортируем по возрастанию
             
             if (error) console.error('Ошибка загрузки списка игр:', error);
             
@@ -647,7 +646,9 @@
                 return;
             }
             let html = '';
-            games.forEach(game => {
+            // Для списка игр показываем в обратном порядке (сначала новые)
+            const reversed = [...games].reverse();
+            reversed.forEach(game => {
                 const date = new Date(game.created_at).toLocaleDateString();
                 const opponent = game.player1_id === currentUser.id ? game.player2_name : game.player1_name;
                 const myWins = game.player1_id === currentUser.id ? game.match_wins_p1 : game.match_wins_p2;
@@ -670,14 +671,15 @@
             const ctx = document.getElementById('overall-efficiency-chart').getContext('2d');
             if (chartOverall) chartOverall.destroy();
 
-            const labels = games.map((_, i) => `Игра ${i+1}`).reverse();
+            // games уже отсортированы по возрастанию даты (старые сначала)
+            const labels = games.map((_, i) => `Игра ${i+1}`);
             const data = games.map(game => {
                 const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
                 if (!stats) return 0;
                 const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0);
                 const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0);
                 return totalShots > 0 ? (totalMade / totalShots * 100).toFixed(1) : 0;
-            }).reverse();
+            });
 
             chartOverall = new Chart(ctx, {
                 type: 'line',
@@ -705,7 +707,7 @@
                 .from('games')
                 .select('*')
                 .eq('id', gameId)
-                .maybeSingle(); // заменено с single на maybeSingle
+                .maybeSingle();
             
             if (gameError || !game) {
                 alert('Игра не найдена');
@@ -791,7 +793,7 @@
                 .from('parties')
                 .select('*')
                 .eq('id', partyId)
-                .maybeSingle(); // заменено с single на maybeSingle
+                .maybeSingle();
             
             if (error || !party) {
                 alert('Партия не найдена');
@@ -912,7 +914,7 @@
                 .from('games')
                 .select('*')
                 .eq('id', gameId)
-                .maybeSingle(); // заменено с single на maybeSingle
+                .maybeSingle();
 
             if (error || !game) {
                 alert('Игра не найдена');
@@ -954,10 +956,14 @@
                     gameData.player2_id = currentUser.id;
                 }
                 setupRealtimeChannel(gameId);
+                // После подключения показываем нужный экран
                 if (gameData.status === 'playing') renderGameScreenFromData(gameData);
                 else if (gameData.status === 'partyFinished') renderStatsScreenFromData(gameData);
                 else if (gameData.status === 'finished') renderFinalStatsFromData(gameData);
-                else showScreen('join-game-screen');
+                else {
+                    // Если статус lobby, остаёмся на экране ожидания (join-game-screen) но можно показать сообщение
+                    alert('Ожидание начала игры от первого игрока');
+                }
             };
         }
 
@@ -1078,7 +1084,6 @@
                 alert('Произошла ошибка. Попробуйте ещё раз.');
             } finally {
                 isGameActionInProgress = false;
-                // Кнопки будут перерендерены через broadcast, так что не восстанавливаем вручную
             }
         }
 
