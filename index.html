@@ -163,6 +163,28 @@
             min-width: 120px;
         }
 
+        .small-action-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .small-action-buttons button {
+            min-width: 60px;
+            padding: 8px 12px;
+            font-size: 14px;
+            background-color: #1a261a;
+            border: 1px solid #2f4f2f;
+        }
+
+        .small-action-buttons .undo-btn {
+            background-color: #2c3e2c;
+            font-size: 18px;
+            padding: 8px 16px;
+            border-radius: 30px;
+        }
+
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -438,8 +460,9 @@
             
             <div id="player-categories" class="categories"></div>
 
-            <!-- Новые кнопки: Отыгрыш и Штраф -->
-            <div class="action-buttons" style="justify-content: center;">
+            <!-- Новые кнопки: Отыгрыш, Штраф, Назад -->
+            <div class="small-action-buttons">
+                <button id="undo-btn" class="undo-btn" title="Отменить последнее действие">↩</button>
                 <button id="otygrysh-btn" class="secondary">Отыгрыш</button>
                 <button id="shtraf-btn" class="secondary">Штраф</button>
             </div>
@@ -448,6 +471,38 @@
                 <button id="next-turn-btn" class="primary">Следующий ход</button>
                 <button id="end-match-btn" class="secondary">Завершить игру</button>
             </div>
+        </div>
+
+        <!-- Экран статистики партии -->
+        <div id="stats-screen" class="hidden">
+            <h2>Статистика партии</h2>
+            <div id="match-score-stats" style="font-size:24px; text-align:center; margin:10px 0;">0:0</div>
+            
+            <div class="player-switch" id="stats-player-switch">
+                <button id="stats-player1-btn" class="active">Моя статистика</button>
+                <button id="stats-player2-btn">Статистика <span id="player2-name-stats"></span></button>
+            </div>
+
+            <div id="player1-stats" class="stats-table"></div>
+            <div id="player2-stats" class="stats-table hidden"></div>
+
+            <div class="action-buttons">
+                <button id="next-party-btn" class="primary">Следующая партия</button>
+                <button id="end-game-from-stats-btn" class="secondary">Завершить игру</button>
+            </div>
+        </div>
+
+        <!-- Экран итоговой статистики -->
+        <div id="final-stats-screen" class="hidden">
+            <h2>Итоговая статистика игры</h2>
+            <div id="final-match-score" style="font-size:24px; text-align:center; margin:20px 0;">0:0</div>
+            <div class="player-switch" id="final-player-switch">
+                <button id="final-stats-player1-btn" class="active">Моя статистика</button>
+                <button id="final-stats-player2-btn">Статистика <span id="final-player2-name"></span></button>
+            </div>
+            <div id="final-player1-stats" class="stats-table"></div>
+            <div id="final-player2-stats" class="stats-table hidden"></div>
+            <button id="new-game-from-final" class="primary" style="width:100%; margin-top:20px;">Новая игра</button>
         </div>
 
         <!-- Модальное окно выбора промаха -->
@@ -493,6 +548,7 @@
 
         let isGameActionInProgress = false;
         let isAuthActionInProgress = false;
+        let lastGameState = null;
 
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function getGameIdFromUrl() {
@@ -508,16 +564,19 @@
         }
 
         function showScreen(screenId) {
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('profile-screen').classList.add('hidden');
-            document.getElementById('game-detail-screen').classList.add('hidden');
-            document.getElementById('party-detail-screen').classList.add('hidden');
-            document.getElementById('create-game-screen').classList.add('hidden');
-            document.getElementById('join-game-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById('stats-screen').classList.add('hidden');
-            document.getElementById('final-stats-screen').classList.add('hidden');
-            document.getElementById(screenId).classList.remove('hidden');
+            const screen = document.getElementById(screenId);
+            if (!screen) {
+                console.error(`Экран с id "${screenId}" не найден в DOM`);
+                return;
+            }
+            // Скрываем все экраны
+            const screens = ['auth-screen', 'profile-screen', 'game-detail-screen', 'party-detail-screen', 
+                            'create-game-screen', 'join-game-screen', 'game-screen', 'stats-screen', 'final-stats-screen'];
+            screens.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            screen.classList.remove('hidden');
         }
 
         function generateGameId() {
@@ -556,6 +615,7 @@
             return false;
         }
 
+        // ========== ОБРАБОТЧИКИ АУТЕНТИФИКАЦИИ ==========
         document.getElementById('auth-login-btn').addEventListener('click', async () => {
             if (isAuthActionInProgress) return;
             isAuthActionInProgress = true;
@@ -635,11 +695,21 @@
                 const opponent = game.player1_id === currentUser.id ? game.player2_name : game.player1_name;
                 const myWins = game.player1_id === currentUser.id ? game.match_wins_p1 : game.match_wins_p2;
                 const oppWins = game.player1_id === currentUser.id ? game.match_wins_p2 : game.match_wins_p1;
+                
+                // Расчет результативности текущего игрока в этой игре
+                const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
+                let efficiency = '0%';
+                if (stats) {
+                    const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0) + (stats.shtraf?.shots||0);
+                    const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0) + (stats.otygrysh?.made||0);
+                    efficiency = totalShots > 0 ? ((totalMade / totalShots) * 100).toFixed(1) + '%' : '0%';
+                }
+                
                 html += `
                     <div class="game-list-item" data-game-id="${game.id}">
                         <div class="date">${date}</div>
                         <div class="players">соперник: ${opponent}</div>
-                        <div class="score">${myWins}:${oppWins}</div>
+                        <div class="score">${myWins}:${oppWins} (${efficiency})</div>
                     </div>
                 `;
             });
@@ -658,7 +728,7 @@
                 const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
                 if (!stats) return 0;
                 const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0) + (stats.shtraf?.shots||0);
-                const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0) + (stats.otygrysh?.made||0); // для отыгрыша made - это без штрафа
+                const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0) + (stats.otygrysh?.made||0);
                 return totalShots > 0 ? (totalMade / totalShots * 100).toFixed(1) : 0;
             });
 
@@ -827,7 +897,6 @@
                 const stat = stats[cat.key] || { shots:0, made:0 };
                 let display;
                 if (cat.key === 'otygrysh') {
-                    // Для отыгрышей показываем (без штрафа / всего отыгрышей)
                     display = `${stat.made}/${stat.shots}`;
                 } else {
                     display = `${stat.made}/${stat.shots}`;
@@ -961,7 +1030,6 @@
             gameChannel
                 .on('broadcast', { event: 'game_update' }, (payload) => {
                     gameData = payload.payload;
-                    // Автоматически переключаем экран в зависимости от статуса
                     if (gameData.status === 'playing') {
                         renderGameScreenFromData(gameData);
                     } else if (gameData.status === 'partyFinished') {
@@ -1014,6 +1082,7 @@
                 document.querySelectorAll('.category-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         if (isGameActionInProgress) return;
+                        lastGameState = JSON.parse(JSON.stringify(gameData));
                         handleAddMade(e.target.dataset.category, data);
                     });
                 });
@@ -1062,7 +1131,6 @@
                 stats_p2: updatedData.party.stats.p2
             });
 
-            // Добавляем статистику партии в общую
             for (let p of ['p1', 'p2']) {
                 for (let cat of ['break','own','opponent','random','otygrysh','shtraf']) {
                     updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
@@ -1078,7 +1146,7 @@
             renderStatsScreenFromData(updatedData);
         }
 
-        // Обработка отыгрыша
+        // ========== ОТЫГРЫШИ И ШТРАФЫ ==========
         document.getElementById('otygrysh-btn').addEventListener('click', () => {
             if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
                 document.getElementById('otygrysh-modal').classList.remove('hidden');
@@ -1095,25 +1163,19 @@
             
             try {
                 if (!gameData) return;
+                lastGameState = JSON.parse(JSON.stringify(gameData));
+                
                 const updatedData = JSON.parse(JSON.stringify(gameData));
                 const player = `p${updatedData.party.currentPlayer}`;
                 
-                // Увеличиваем общее количество отыгрышей
                 updatedData.party.stats[player].otygrysh.shots += 1;
                 
                 if (!soShtrafom) {
-                    // Отыгрыш без штрафа
                     updatedData.party.stats[player].otygrysh.made += 1;
                 } else {
-                    // Со штрафом - вычитаем очко
                     updatedData.party.score[player] -= 1;
-                    // Штраф также можно фиксировать как отдельное действие? По заданию - штрафы считаются отдельно.
-                    // Но здесь отыгрыш со штрафом не считается успешным, поэтому made не увеличивается.
-                    // Также можно добавить отдельную статистику штрафов за этот отыгрыш? Но есть отдельная кнопка "Штраф".
                 }
                 
-                // Проверяем, не ушёл ли счёт в минус (может быть отрицательным, допустим)
-                // Передаём обновление
                 await broadcastUpdate(updatedData);
             } catch (error) {
                 console.error('Ошибка при отыгрыше:', error);
@@ -1123,19 +1185,19 @@
             }
         }
 
-        // Обработка штрафа
         document.getElementById('shtraf-btn').addEventListener('click', async () => {
             if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
                 if (isGameActionInProgress) return;
                 isGameActionInProgress = true;
                 
                 try {
+                    lastGameState = JSON.parse(JSON.stringify(gameData));
+                    
                     const updatedData = JSON.parse(JSON.stringify(gameData));
                     const player = `p${updatedData.party.currentPlayer}`;
                     
-                    // Увеличиваем счётчик штрафов
                     updatedData.party.stats[player].shtraf.shots += 1;
-                    updatedData.party.stats[player].shtraf.made += 1; // made для штрафов не используется, но для единообразия
+                    updatedData.party.stats[player].shtraf.made += 1;
                     updatedData.party.score[player] -= 1;
                     
                     await broadcastUpdate(updatedData);
@@ -1148,9 +1210,34 @@
             } else alert('Сейчас не ваш ход');
         });
 
-        // Следующий ход
+        // ========== КНОПКА НАЗАД ==========
+        document.getElementById('undo-btn').addEventListener('click', async () => {
+            if (!gameData || !lastGameState) {
+                alert('Нет действия для отмены');
+                return;
+            }
+            if (currentPlayerRole !== `p${gameData.party.currentPlayer}`) {
+                alert('Отмена доступна только в свой ход');
+                return;
+            }
+            if (isGameActionInProgress) return;
+            isGameActionInProgress = true;
+
+            try {
+                await broadcastUpdate(lastGameState);
+                lastGameState = null;
+            } catch (error) {
+                console.error('Ошибка при отмене:', error);
+                alert('Ошибка при отмене действия');
+            } finally {
+                isGameActionInProgress = false;
+            }
+        });
+
+        // ========== СЛЕДУЮЩИЙ ХОД ==========
         document.getElementById('next-turn-btn').addEventListener('click', () => {
             if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
+                lastGameState = JSON.parse(JSON.stringify(gameData));
                 document.getElementById('miss-modal').classList.remove('hidden');
             } else alert('Сейчас не ваш ход');
         });
@@ -1165,6 +1252,8 @@
             
             try {
                 if (!gameData) return;
+                lastGameState = JSON.parse(JSON.stringify(gameData));
+                
                 const updatedData = JSON.parse(JSON.stringify(gameData));
                 const player = `p${updatedData.party.currentPlayer}`;
                 updatedData.party.stats[player][shotType].shots += 1;
@@ -1178,7 +1267,7 @@
             }
         }
 
-        // Завершить игру досрочно
+        // ========== ЗАВЕРШИТЬ ИГРУ ==========
         document.getElementById('end-match-btn').addEventListener('click', async () => {
             if (!gameData) return;
             if (confirm('Завершить игру?')) {
@@ -1204,7 +1293,6 @@
                 partyFinished: false
             };
             await broadcastUpdate(updatedData);
-            // Первый игрок также перейдёт на игровой экран через broadcast, но на всякий случай вызываем рендер
             renderGameScreenFromData(updatedData);
         });
 
@@ -1242,7 +1330,7 @@
             }
         }
 
-        // Следующая партия
+        // ========== СЛЕДУЮЩАЯ ПАРТИЯ ==========
         document.getElementById('next-party-btn').addEventListener('click', async () => {
             if (!gameData) return;
             const updatedData = JSON.parse(JSON.stringify(gameData));
@@ -1261,7 +1349,7 @@
             await broadcastUpdate(updatedData);
         });
 
-        // Завершить игру из статистики партии
+        // ========== ЗАВЕРШИТЬ ИГРУ ИЗ СТАТИСТИКИ ==========
         document.getElementById('end-game-from-stats-btn').addEventListener('click', async () => {
             if (!gameData) return;
             if (confirm('Завершить игру?')) {
@@ -1305,12 +1393,12 @@
             }
         }
 
-        // Новая игра из финального экрана
+        // ========== НОВАЯ ИГРА ИЗ ФИНАЛЬНОГО ЭКРАНА ==========
         document.getElementById('new-game-from-final').addEventListener('click', () => {
             showScreen('create-game-screen');
         });
 
-        // Навигация назад
+        // ========== НАВИГАЦИЯ НАЗАД ==========
         document.getElementById('back-to-profile').addEventListener('click', loadProfileScreen);
         document.getElementById('back-to-game-detail').addEventListener('click', () => {
             if (currentGameDetail) loadGameDetail(currentGameDetail.id);
@@ -1318,6 +1406,7 @@
         });
         document.getElementById('back-from-join').addEventListener('click', loadProfileScreen);
 
+        // ========== КОПИРОВАНИЕ ССЫЛКИ ==========
         document.getElementById('copy-link-btn').addEventListener('click', () => {
             const linkInput = document.getElementById('game-link');
             linkInput.select();
