@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>Бильярд 8: статистика с личным кабинетом</title>
-    <!-- Supabase JS (создаёт глобальную переменную supabase) -->
+    <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -71,7 +71,8 @@
         }
 
         button:disabled {
-            opacity: 0.4;
+            opacity: 0.5;
+            cursor: not-allowed;
             pointer-events: none;
         }
 
@@ -503,6 +504,10 @@
         let currentGameDetail = null; // данные игры при просмотре
         let currentParties = null;    // партии текущей игры
 
+        // Флаги для блокировки повторных действий
+        let isGameActionInProgress = false;
+        let isAuthActionInProgress = false;
+
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function getGameIdFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -556,26 +561,46 @@
         }
 
         document.getElementById('auth-login-btn').addEventListener('click', async () => {
+            if (isAuthActionInProgress) return;
+            isAuthActionInProgress = true;
+            document.getElementById('auth-login-btn').disabled = true;
+            document.getElementById('auth-register-btn').disabled = true;
+
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
             const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            
             if (error) {
                 document.getElementById('auth-message').textContent = error.message;
             } else {
                 await checkSession();
                 loadProfileScreen();
             }
+
+            document.getElementById('auth-login-btn').disabled = false;
+            document.getElementById('auth-register-btn').disabled = false;
+            isAuthActionInProgress = false;
         });
 
         document.getElementById('auth-register-btn').addEventListener('click', async () => {
+            if (isAuthActionInProgress) return;
+            isAuthActionInProgress = true;
+            document.getElementById('auth-login-btn').disabled = true;
+            document.getElementById('auth-register-btn').disabled = true;
+
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
             const { error } = await supabaseClient.auth.signUp({ email, password });
+            
             if (error) {
                 document.getElementById('auth-message').textContent = error.message;
             } else {
                 alert('Регистрация успешна! Теперь войдите.');
             }
+
+            document.getElementById('auth-login-btn').disabled = false;
+            document.getElementById('auth-register-btn').disabled = false;
+            isAuthActionInProgress = false;
         });
 
         document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -967,6 +992,7 @@
             if (currentPlayerRole === `p${currentPlayer}`) {
                 document.querySelectorAll('.category-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
+                        if (isGameActionInProgress) return;
                         handleAddMade(e.target.dataset.category, data);
                     });
                 });
@@ -974,51 +1000,64 @@
         }
 
         async function handleAddMade(category, currentData) {
-            const player = `p${currentData.party.currentPlayer}`;
-            const updatedData = JSON.parse(JSON.stringify(currentData));
-            updatedData.party.stats[player][category].made += 1;
-            updatedData.party.stats[player][category].shots += 1;
-            updatedData.party.score[player] += 1;
+            if (isGameActionInProgress) return;
+            isGameActionInProgress = true;
+            
+            // Отключаем все кнопки категорий
+            document.querySelectorAll('.category-btn').forEach(btn => btn.disabled = true);
 
-            if (updatedData.party.score[player] >= 8) {
-                // Партия завершена
-                const winner = player === 'p1' ? 1 : 2;
-                if (winner === 1) updatedData.match_wins_p1 += 1;
-                else updatedData.match_wins_p2 += 1;
+            try {
+                const player = `p${currentData.party.currentPlayer}`;
+                const updatedData = JSON.parse(JSON.stringify(currentData));
+                updatedData.party.stats[player][category].made += 1;
+                updatedData.party.stats[player][category].shots += 1;
+                updatedData.party.score[player] += 1;
 
-                // Сохраняем партию в таблицу parties
-                const partyNumber = updatedData.current_party || 1;
-                await supabaseClient.from('parties').insert({
-                    game_id: currentGameId,
-                    party_number: partyNumber,
-                    breaker: updatedData.breaker,
-                    score_p1: updatedData.party.score.p1,
-                    score_p2: updatedData.party.score.p2,
-                    stats_p1: updatedData.party.stats.p1,
-                    stats_p2: updatedData.party.stats.p2
-                });
+                if (updatedData.party.score[player] >= 8) {
+                    // Партия завершена
+                    const winner = player === 'p1' ? 1 : 2;
+                    if (winner === 1) updatedData.match_wins_p1 += 1;
+                    else updatedData.match_wins_p2 += 1;
 
-                // Добавляем статистику партии в общую
-                // Внимание: исправлено обновление total_stats_p1/p2 (была ошибка в индексе)
-                for (let p of ['p1', 'p2']) {
-                    for (let cat of ['break','own','opponent','random']) {
-                        updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
-                        updatedData[`total_stats_${p}`][cat].made += updatedData.party.stats[p][cat].made;
+                    // Сохраняем партию в таблицу parties
+                    const partyNumber = updatedData.current_party || 1;
+                    await supabaseClient.from('parties').insert({
+                        game_id: currentGameId,
+                        party_number: partyNumber,
+                        breaker: updatedData.breaker,
+                        score_p1: updatedData.party.score.p1,
+                        score_p2: updatedData.party.score.p2,
+                        stats_p1: updatedData.party.stats.p1,
+                        stats_p2: updatedData.party.stats.p2
+                    });
+
+                    // Добавляем статистику партии в общую
+                    for (let p of ['p1', 'p2']) {
+                        for (let cat of ['break','own','opponent','random']) {
+                            updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
+                            updatedData[`total_stats_${p}`][cat].made += updatedData.party.stats[p][cat].made;
+                        }
                     }
+
+                    updatedData.status = 'partyFinished';
+                    updatedData.party.partyFinished = true;
+                    updatedData.current_party = (updatedData.current_party || 1) + 1;
                 }
 
-                updatedData.status = 'partyFinished';
-                updatedData.party.partyFinished = true;
-                updatedData.current_party = (updatedData.current_party || 1) + 1;
+                await broadcastUpdate(updatedData);
+                if (updatedData.status === 'partyFinished') renderStatsScreenFromData(updatedData);
+            } catch (error) {
+                console.error('Ошибка при добавлении забитого шара:', error);
+                alert('Произошла ошибка. Попробуйте ещё раз.');
+            } finally {
+                isGameActionInProgress = false;
+                // Кнопки будут перерендерены через broadcast, но на всякий случай вернём доступ позже
             }
-
-            await broadcastUpdate(updatedData);
-            if (updatedData.status === 'partyFinished') renderStatsScreenFromData(updatedData);
         }
 
         // Следующий ход
         document.getElementById('next-turn-btn').addEventListener('click', () => {
-            if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}`) {
+            if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
                 document.getElementById('miss-modal').classList.remove('hidden');
             } else alert('Сейчас не ваш ход');
         });
@@ -1027,17 +1066,28 @@
         document.getElementById('miss-opponent').addEventListener('click', () => handleMiss('opponent'));
 
         async function handleMiss(shotType) {
+            if (isGameActionInProgress) return;
+            isGameActionInProgress = true;
             document.getElementById('miss-modal').classList.add('hidden');
-            if (!gameData) return;
-            const updatedData = JSON.parse(JSON.stringify(gameData));
-            const player = `p${updatedData.party.currentPlayer}`;
-            updatedData.party.stats[player][shotType].shots += 1;
-            updatedData.party.currentPlayer = updatedData.party.currentPlayer === 1 ? 2 : 1;
-            await broadcastUpdate(updatedData);
+            
+            try {
+                if (!gameData) return;
+                const updatedData = JSON.parse(JSON.stringify(gameData));
+                const player = `p${updatedData.party.currentPlayer}`;
+                updatedData.party.stats[player][shotType].shots += 1;
+                updatedData.party.currentPlayer = updatedData.party.currentPlayer === 1 ? 2 : 1;
+                await broadcastUpdate(updatedData);
+            } catch (error) {
+                console.error('Ошибка при промахе:', error);
+                alert('Произошла ошибка. Попробуйте ещё раз.');
+            } finally {
+                isGameActionInProgress = false;
+            }
         }
 
         // Завершить игру досрочно
         document.getElementById('end-match-btn').addEventListener('click', async () => {
+            if (!gameData) return;
             if (confirm('Завершить игру?')) {
                 const updatedData = JSON.parse(JSON.stringify(gameData));
                 updatedData.status = 'finished';
@@ -1118,6 +1168,7 @@
 
         // Завершить игру из статистики партии
         document.getElementById('end-game-from-stats-btn').addEventListener('click', async () => {
+            if (!gameData) return;
             if (confirm('Завершить игру?')) {
                 const updatedData = JSON.parse(JSON.stringify(gameData));
                 updatedData.status = 'finished';
