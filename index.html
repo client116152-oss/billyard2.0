@@ -490,7 +490,6 @@
         const SUPABASE_URL = 'https://yldxaouqbhxgcojydrmj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZHhhb3VxYmh4Z2Nvanlkcm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NTI0NTgsImV4cCI6MjA4OTIyODQ1OH0.RSlOz8y591wMbMH-V7swnXJBzku3CuUiSdkVrqrUCG4';
         
-        // Инициализация клиента Supabase
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
@@ -498,13 +497,12 @@
         let currentGameId = null;
         let currentPlayerRole = null; // 'p1' или 'p2'
         let gameChannel = null;
-        let gameData = null; // кэш текущей игры
+        let gameData = null;
         let chartOverall = null;
         let chartParty = null;
-        let currentGameDetail = null; // данные игры при просмотре
-        let currentParties = null;    // партии текущей игры
+        let currentGameDetail = null;
+        let currentParties = null;
 
-        // Флаги для блокировки повторных действий
         let isGameActionInProgress = false;
         let isAuthActionInProgress = false;
 
@@ -543,7 +541,6 @@
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 currentUser = session.user;
-                // Загружаем профиль, если есть
                 const { data: profile, error: profileError } = await supabaseClient
                     .from('profiles')
                     .select('username')
@@ -557,7 +554,6 @@
                 if (profile) {
                     currentUser.username = profile.username;
                 } else {
-                    // Создаём профиль
                     const username = currentUser.email.split('@')[0];
                     const { error: insertError } = await supabaseClient
                         .from('profiles')
@@ -625,12 +621,11 @@
         async function loadProfileScreen() {
             document.getElementById('profile-username').textContent = `Привет, ${currentUser.username}!`;
             
-            // Загружаем игры, сортируем по возрастанию даты (старые сначала) для графика
             const { data: games, error } = await supabaseClient
                 .from('games')
                 .select('*')
                 .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`)
-                .order('created_at', { ascending: true }); // сортируем по возрастанию
+                .order('created_at', { ascending: true });
             
             if (error) console.error('Ошибка загрузки списка игр:', error);
             
@@ -646,7 +641,6 @@
                 return;
             }
             let html = '';
-            // Для списка игр показываем в обратном порядке (сначала новые)
             const reversed = [...games].reverse();
             reversed.forEach(game => {
                 const date = new Date(game.created_at).toLocaleDateString();
@@ -671,7 +665,6 @@
             const ctx = document.getElementById('overall-efficiency-chart').getContext('2d');
             if (chartOverall) chartOverall.destroy();
 
-            // games уже отсортированы по возрастанию даты (старые сначала)
             const labels = games.map((_, i) => `Игра ${i+1}`);
             const data = games.map(game => {
                 const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
@@ -810,7 +803,6 @@
             renderStatsTable('party-player1-stats', party.stats_p1, party.score_p1);
             renderStatsTable('party-player2-stats', party.stats_p2, party.score_p2);
             
-            // Активируем вкладку игрока 1
             document.getElementById('party-player1-stats').classList.remove('hidden');
             document.getElementById('party-player2-stats').classList.add('hidden');
             document.getElementById('party-stats-player1-btn').classList.add('active');
@@ -956,12 +948,10 @@
                     gameData.player2_id = currentUser.id;
                 }
                 setupRealtimeChannel(gameId);
-                // После подключения показываем нужный экран
                 if (gameData.status === 'playing') renderGameScreenFromData(gameData);
                 else if (gameData.status === 'partyFinished') renderStatsScreenFromData(gameData);
                 else if (gameData.status === 'finished') renderFinalStatsFromData(gameData);
                 else {
-                    // Если статус lobby, остаёмся на экране ожидания (join-game-screen) но можно показать сообщение
                     alert('Ожидание начала игры от первого игрока');
                 }
             };
@@ -974,13 +964,15 @@
             gameChannel
                 .on('broadcast', { event: 'game_update' }, (payload) => {
                     gameData = payload.payload;
-                    if (!document.getElementById('game-screen').classList.contains('hidden')) {
+                    // Автоматически переключаем экран в зависимости от статуса
+                    if (gameData.status === 'playing') {
                         renderGameScreenFromData(gameData);
-                    } else if (!document.getElementById('stats-screen').classList.contains('hidden')) {
+                    } else if (gameData.status === 'partyFinished') {
                         renderStatsScreenFromData(gameData);
-                    } else if (!document.getElementById('final-stats-screen').classList.contains('hidden')) {
+                    } else if (gameData.status === 'finished') {
                         renderFinalStatsFromData(gameData);
                     }
+                    // Если статус lobby, ничего не делаем (остаёмся на текущем экране)
                 })
                 .subscribe();
         }
@@ -1036,7 +1028,6 @@
             if (isGameActionInProgress) return;
             isGameActionInProgress = true;
             
-            // Отключаем все кнопки категорий
             document.querySelectorAll('.category-btn').forEach(btn => btn.disabled = true);
 
             try {
@@ -1047,12 +1038,10 @@
                 updatedData.party.score[player] += 1;
 
                 if (updatedData.party.score[player] >= 8) {
-                    // Партия завершена
                     const winner = player === 'p1' ? 1 : 2;
                     if (winner === 1) updatedData.match_wins_p1 += 1;
                     else updatedData.match_wins_p2 += 1;
 
-                    // Сохраняем партию в таблицу parties
                     const partyNumber = updatedData.current_party || 1;
                     await supabaseClient.from('parties').insert({
                         game_id: currentGameId,
@@ -1064,7 +1053,6 @@
                         stats_p2: updatedData.party.stats.p2
                     });
 
-                    // Добавляем статистику партии в общую
                     for (let p of ['p1', 'p2']) {
                         for (let cat of ['break','own','opponent','random']) {
                             updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
@@ -1087,7 +1075,6 @@
             }
         }
 
-        // Следующий ход
         document.getElementById('next-turn-btn').addEventListener('click', () => {
             if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
                 document.getElementById('miss-modal').classList.remove('hidden');
@@ -1117,7 +1104,6 @@
             }
         }
 
-        // Завершить игру досрочно
         document.getElementById('end-match-btn').addEventListener('click', async () => {
             if (!gameData) return;
             if (confirm('Завершить игру?')) {
@@ -1127,7 +1113,7 @@
             }
         });
 
-        // Старт игры
+        // ========== СТАРТ ИГРЫ ==========
         document.getElementById('start-game-btn').addEventListener('click', async () => {
             const updatedData = JSON.parse(JSON.stringify(gameData));
             updatedData.status = 'playing';
@@ -1143,6 +1129,8 @@
                 partyFinished: false
             };
             await broadcastUpdate(updatedData);
+            // Сразу переключаем первого игрока на игровой экран (дубль с broadcast, но надёжнее)
+            renderGameScreenFromData(updatedData);
         });
 
         // ========== СТАТИСТИКА ПАРТИИ ==========
@@ -1179,7 +1167,6 @@
             }
         }
 
-        // Следующая партия
         document.getElementById('next-party-btn').addEventListener('click', async () => {
             if (!gameData) return;
             const updatedData = JSON.parse(JSON.stringify(gameData));
@@ -1198,7 +1185,6 @@
             await broadcastUpdate(updatedData);
         });
 
-        // Завершить игру из статистики партии
         document.getElementById('end-game-from-stats-btn').addEventListener('click', async () => {
             if (!gameData) return;
             if (confirm('Завершить игру?')) {
@@ -1242,7 +1228,6 @@
             }
         }
 
-        // Новая игра из финального экрана
         document.getElementById('new-game-from-final').addEventListener('click', () => {
             showScreen('create-game-screen');
         });
@@ -1255,7 +1240,6 @@
         });
         document.getElementById('back-from-join').addEventListener('click', loadProfileScreen);
 
-        // Копирование ссылки
         document.getElementById('copy-link-btn').addEventListener('click', () => {
             const linkInput = document.getElementById('game-link');
             linkInput.select();
