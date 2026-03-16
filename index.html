@@ -9,6 +9,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        /* Все стили без изменений (из предыдущего ответа) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -678,9 +679,9 @@
                 return;
             }
             
-            // Фильтруем игры, где участвует текущий пользователь
+            // Фильтруем игры, где участвует текущий пользователь и где data существует
             const userGames = games.filter(game => 
-                game.data.player1_id === currentUser.id || game.data.player2_id === currentUser.id
+                game.data && (game.data.player1_id === currentUser.id || game.data.player2_id === currentUser.id)
             );
             
             renderGamesList(userGames);
@@ -767,7 +768,7 @@
                 .eq('id', gameId)
                 .maybeSingle();
             
-            if (gameError || !game) {
+            if (gameError || !game || !game.data) {
                 alert('Игра не найдена');
                 loadProfileScreen();
                 return;
@@ -985,7 +986,7 @@
                 .eq('id', gameId)
                 .maybeSingle();
 
-            if (error || !game) {
+            if (error || !game || !game.data) {
                 alert('Игра не найдена');
                 loadProfileScreen();
                 return;
