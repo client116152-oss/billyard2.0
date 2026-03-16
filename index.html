@@ -155,10 +155,12 @@
             display: flex;
             gap: 10px;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
 
         .action-buttons button {
-            flex: 1;
+            flex: 1 1 auto;
+            min-width: 120px;
         }
 
         .modal-overlay {
@@ -195,11 +197,12 @@
             display: flex;
             gap: 15px;
             justify-content: center;
+            flex-wrap: wrap;
         }
 
         .modal-buttons button {
             flex: 1;
-            max-width: 120px;
+            min-width: 100px;
         }
 
         .stats-table {
@@ -435,42 +438,16 @@
             
             <div id="player-categories" class="categories"></div>
 
+            <!-- Новые кнопки: Отыгрыш и Штраф -->
+            <div class="action-buttons" style="justify-content: center;">
+                <button id="otygrysh-btn" class="secondary">Отыгрыш</button>
+                <button id="shtraf-btn" class="secondary">Штраф</button>
+            </div>
+
             <div class="action-buttons">
                 <button id="next-turn-btn" class="primary">Следующий ход</button>
                 <button id="end-match-btn" class="secondary">Завершить игру</button>
             </div>
-        </div>
-
-        <!-- Экран статистики партии -->
-        <div id="stats-screen" class="hidden">
-            <h2>Статистика партии</h2>
-            <div id="match-score-stats" style="font-size:24px; text-align:center; margin:10px 0;">0:0</div>
-            
-            <div class="player-switch" id="stats-player-switch">
-                <button id="stats-player1-btn" class="active">Моя статистика</button>
-                <button id="stats-player2-btn">Статистика <span id="player2-name-stats"></span></button>
-            </div>
-
-            <div id="player1-stats" class="stats-table"></div>
-            <div id="player2-stats" class="stats-table hidden"></div>
-
-            <div class="action-buttons">
-                <button id="next-party-btn" class="primary">Следующая партия</button>
-                <button id="end-game-from-stats-btn" class="secondary">Завершить игру</button>
-            </div>
-        </div>
-
-        <!-- Экран итоговой статистики -->
-        <div id="final-stats-screen" class="hidden">
-            <h2>Итоговая статистика игры</h2>
-            <div id="final-match-score" style="font-size:24px; text-align:center; margin:20px 0;">0:0</div>
-            <div class="player-switch" id="final-player-switch">
-                <button id="final-stats-player1-btn" class="active">Моя статистика</button>
-                <button id="final-stats-player2-btn">Статистика <span id="final-player2-name"></span></button>
-            </div>
-            <div id="final-player1-stats" class="stats-table"></div>
-            <div id="final-player2-stats" class="stats-table hidden"></div>
-            <button id="new-game-from-final" class="primary" style="width:100%; margin-top:20px;">Новая игра</button>
         </div>
 
         <!-- Модальное окно выбора промаха -->
@@ -480,6 +457,17 @@
                 <div class="modal-buttons">
                     <button id="miss-own">Свояк</button>
                     <button id="miss-opponent">Чужой</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно выбора типа отыгрыша -->
+        <div id="otygrysh-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Тип отыгрыша</h3>
+                <div class="modal-buttons">
+                    <button id="otygrysh-bez-shtrafa">Без штрафа</button>
+                    <button id="otygrysh-so-shtrafom">Со штрафом</button>
                 </div>
             </div>
         </div>
@@ -647,11 +635,21 @@
                 const opponent = game.player1_id === currentUser.id ? game.player2_name : game.player1_name;
                 const myWins = game.player1_id === currentUser.id ? game.match_wins_p1 : game.match_wins_p2;
                 const oppWins = game.player1_id === currentUser.id ? game.match_wins_p2 : game.match_wins_p1;
+                
+                // Расчет результативности текущего игрока в этой игре
+                const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
+                let efficiency = '0%';
+                if (stats) {
+                    const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0) + (stats.shtraf?.shots||0);
+                    const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0) + (stats.otygrysh?.made||0);
+                    efficiency = totalShots > 0 ? ((totalMade / totalShots) * 100).toFixed(1) + '%' : '0%';
+                }
+                
                 html += `
                     <div class="game-list-item" data-game-id="${game.id}">
                         <div class="date">${date}</div>
                         <div class="players">соперник: ${opponent}</div>
-                        <div class="score">${myWins}:${oppWins}</div>
+                        <div class="score">${myWins}:${oppWins} (${efficiency})</div>
                     </div>
                 `;
             });
@@ -669,8 +667,8 @@
             const data = games.map(game => {
                 const stats = game.player1_id === currentUser.id ? game.total_stats_p1 : game.total_stats_p2;
                 if (!stats) return 0;
-                const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0);
-                const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0);
+                const totalShots = (stats.break?.shots ||0) + (stats.own?.shots||0) + (stats.opponent?.shots||0) + (stats.random?.shots||0) + (stats.otygrysh?.shots||0) + (stats.shtraf?.shots||0);
+                const totalMade = (stats.break?.made||0) + (stats.own?.made||0) + (stats.opponent?.made||0) + (stats.random?.made||0) + (stats.otygrysh?.made||0);
                 return totalShots > 0 ? (totalMade / totalShots * 100).toFixed(1) : 0;
             });
 
@@ -735,8 +733,8 @@
             const labels = parties.map(p => `Партия ${p.party_number}`);
             const data = parties.map(p => {
                 const stats = isMeP1 ? p.stats_p1 : p.stats_p2;
-                const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0);
-                const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0);
+                const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0)+(stats.shtraf?.shots||0);
+                const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0)+(stats.otygrysh?.made||0);
                 return totalShots > 0 ? (totalMade / totalShots * 100).toFixed(1) : 0;
             });
 
@@ -830,23 +828,32 @@
                 { key: 'break', name: 'Начальный удар' },
                 { key: 'own', name: 'Свояки' },
                 { key: 'opponent', name: 'Чужие' },
-                { key: 'random', name: 'Случайные' }
+                { key: 'random', name: 'Случайные' },
+                { key: 'otygrysh', name: 'Отыгрыши' },
+                { key: 'shtraf', name: 'Штрафы' }
             ];
             let html = `<div class="stats-row"><span>Всего забито:</span><span>${totalScore}</span></div>`;
             for (let cat of categories) {
                 const stat = stats[cat.key] || { shots:0, made:0 };
-                const efficiency = stat.shots > 0 ? ((stat.made / stat.shots) * 100).toFixed(1) : '0.0';
+                let display;
+                if (cat.key === 'otygrysh') {
+                    // Для отыгрышей показываем (без штрафа / всего отыгрышей)
+                    display = `${stat.made}/${stat.shots}`;
+                } else {
+                    display = `${stat.made}/${stat.shots}`;
+                }
+                const efficiency = cat.key === 'otygrysh' ? '' : (stat.shots > 0 ? ` (${((stat.made / stat.shots) * 100).toFixed(1)}%)` : ' (0%)');
                 html += `
                     <div class="stats-row">
                         <span>${cat.name}:</span>
-                        <span>${stat.made}/${stat.shots} (${efficiency}%)</span>
+                        <span>${display}${efficiency}</span>
                     </div>
                 `;
             }
-            const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0);
-            const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0);
+            const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0)+(stats.shtraf?.shots||0);
+            const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0)+(stats.otygrysh?.made||0);
             const totalEfficiency = totalShots > 0 ? ((totalMade / totalShots) * 100).toFixed(1) : '0.0';
-            html += `<div class="stats-row"><span>Общая:</span><span>${totalMade}/${totalShots} (${totalEfficiency}%)</span></div>`;
+            html += `<div class="stats-row"><span>Общая результативность:</span><span>${totalMade}/${totalShots} (${totalEfficiency}%)</span></div>`;
             container.innerHTML = html;
         }
 
@@ -871,8 +878,8 @@
                 player2_name: p2Name,
                 match_wins_p1: 0,
                 match_wins_p2: 0,
-                total_stats_p1: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 } },
-                total_stats_p2: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 } },
+                total_stats_p1: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } },
+                total_stats_p2: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } },
                 status: 'lobby',
                 created_at: new Date(),
                 current_party: 1,
@@ -972,7 +979,6 @@
                     } else if (gameData.status === 'finished') {
                         renderFinalStatsFromData(gameData);
                     }
-                    // Если статус lobby, ничего не делаем (остаёмся на текущем экране)
                 })
                 .subscribe();
         }
@@ -1038,35 +1044,10 @@
                 updatedData.party.score[player] += 1;
 
                 if (updatedData.party.score[player] >= 8) {
-                    const winner = player === 'p1' ? 1 : 2;
-                    if (winner === 1) updatedData.match_wins_p1 += 1;
-                    else updatedData.match_wins_p2 += 1;
-
-                    const partyNumber = updatedData.current_party || 1;
-                    await supabaseClient.from('parties').insert({
-                        game_id: currentGameId,
-                        party_number: partyNumber,
-                        breaker: updatedData.breaker,
-                        score_p1: updatedData.party.score.p1,
-                        score_p2: updatedData.party.score.p2,
-                        stats_p1: updatedData.party.stats.p1,
-                        stats_p2: updatedData.party.stats.p2
-                    });
-
-                    for (let p of ['p1', 'p2']) {
-                        for (let cat of ['break','own','opponent','random']) {
-                            updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
-                            updatedData[`total_stats_${p}`][cat].made += updatedData.party.stats[p][cat].made;
-                        }
-                    }
-
-                    updatedData.status = 'partyFinished';
-                    updatedData.party.partyFinished = true;
-                    updatedData.current_party = (updatedData.current_party || 1) + 1;
+                    await finishParty(updatedData);
+                } else {
+                    await broadcastUpdate(updatedData);
                 }
-
-                await broadcastUpdate(updatedData);
-                if (updatedData.status === 'partyFinished') renderStatsScreenFromData(updatedData);
             } catch (error) {
                 console.error('Ошибка при добавлении забитого шара:', error);
                 alert('Произошла ошибка. Попробуйте ещё раз.');
@@ -1075,6 +1056,103 @@
             }
         }
 
+        async function finishParty(updatedData) {
+            const winner = updatedData.party.score.p1 >= 8 ? 'p1' : 'p2';
+            if (winner === 'p1') updatedData.match_wins_p1 += 1;
+            else updatedData.match_wins_p2 += 1;
+
+            const partyNumber = updatedData.current_party || 1;
+            await supabaseClient.from('parties').insert({
+                game_id: currentGameId,
+                party_number: partyNumber,
+                breaker: updatedData.breaker,
+                score_p1: updatedData.party.score.p1,
+                score_p2: updatedData.party.score.p2,
+                stats_p1: updatedData.party.stats.p1,
+                stats_p2: updatedData.party.stats.p2
+            });
+
+            // Добавляем статистику партии в общую
+            for (let p of ['p1', 'p2']) {
+                for (let cat of ['break','own','opponent','random','otygrysh','shtraf']) {
+                    updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
+                    updatedData[`total_stats_${p}`][cat].made += updatedData.party.stats[p][cat].made;
+                }
+            }
+
+            updatedData.status = 'partyFinished';
+            updatedData.party.partyFinished = true;
+            updatedData.current_party = (updatedData.current_party || 1) + 1;
+
+            await broadcastUpdate(updatedData);
+            renderStatsScreenFromData(updatedData);
+        }
+
+        // Обработка отыгрыша
+        document.getElementById('otygrysh-btn').addEventListener('click', () => {
+            if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
+                document.getElementById('otygrysh-modal').classList.remove('hidden');
+            } else alert('Сейчас не ваш ход');
+        });
+
+        document.getElementById('otygrysh-bez-shtrafa').addEventListener('click', () => handleOtygrysh(false));
+        document.getElementById('otygrysh-so-shtrafom').addEventListener('click', () => handleOtygrysh(true));
+
+        async function handleOtygrysh(soShtrafom) {
+            if (isGameActionInProgress) return;
+            isGameActionInProgress = true;
+            document.getElementById('otygrysh-modal').classList.add('hidden');
+            
+            try {
+                if (!gameData) return;
+                const updatedData = JSON.parse(JSON.stringify(gameData));
+                const player = `p${updatedData.party.currentPlayer}`;
+                
+                // Увеличиваем общее количество отыгрышей
+                updatedData.party.stats[player].otygrysh.shots += 1;
+                
+                if (!soShtrafom) {
+                    // Отыгрыш без штрафа
+                    updatedData.party.stats[player].otygrysh.made += 1;
+                } else {
+                    // Со штрафом - вычитаем очко
+                    updatedData.party.score[player] -= 1;
+                }
+                
+                await broadcastUpdate(updatedData);
+            } catch (error) {
+                console.error('Ошибка при отыгрыше:', error);
+                alert('Произошла ошибка. Попробуйте ещё раз.');
+            } finally {
+                isGameActionInProgress = false;
+            }
+        }
+
+        // Обработка штрафа
+        document.getElementById('shtraf-btn').addEventListener('click', async () => {
+            if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
+                if (isGameActionInProgress) return;
+                isGameActionInProgress = true;
+                
+                try {
+                    const updatedData = JSON.parse(JSON.stringify(gameData));
+                    const player = `p${updatedData.party.currentPlayer}`;
+                    
+                    updatedData.party.stats[player].shtraf.shots += 1;
+                    updatedData.party.stats[player].shtraf.made += 1;
+                    updatedData.party.score[player] -= 1;
+                    
+                    await broadcastUpdate(updatedData);
+                } catch (error) {
+                    console.error('Ошибка при штрафе:', error);
+                    alert('Произошла ошибка. Попробуйте ещё раз.');
+                } finally {
+                    isGameActionInProgress = false;
+                }
+            } else alert('Сейчас не ваш ход');
+        });
+
+        // Следующий ход
         document.getElementById('next-turn-btn').addEventListener('click', () => {
             if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
                 document.getElementById('miss-modal').classList.remove('hidden');
@@ -1104,6 +1182,7 @@
             }
         }
 
+        // Завершить игру досрочно
         document.getElementById('end-match-btn').addEventListener('click', async () => {
             if (!gameData) return;
             if (confirm('Завершить игру?')) {
@@ -1122,14 +1201,14 @@
             updatedData.party = {
                 score: { p1: 0, p2: 0 },
                 stats: {
-                    p1: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 } },
-                    p2: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 } }
+                    p1: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } },
+                    p2: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } }
                 },
                 currentPlayer: 1,
                 partyFinished: false
             };
             await broadcastUpdate(updatedData);
-            // Сразу переключаем первого игрока на игровой экран (дубль с broadcast, но надёжнее)
+            // Первый игрок также перейдёт на игровой экран через broadcast, но на всякий случай вызываем рендер
             renderGameScreenFromData(updatedData);
         });
 
@@ -1167,6 +1246,7 @@
             }
         }
 
+        // Следующая партия
         document.getElementById('next-party-btn').addEventListener('click', async () => {
             if (!gameData) return;
             const updatedData = JSON.parse(JSON.stringify(gameData));
@@ -1176,8 +1256,8 @@
             updatedData.party = {
                 score: { p1: 0, p2: 0 },
                 stats: {
-                    p1: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 } },
-                    p2: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 } }
+                    p1: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } },
+                    p2: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } }
                 },
                 currentPlayer: nextBreaker,
                 partyFinished: false
@@ -1185,6 +1265,7 @@
             await broadcastUpdate(updatedData);
         });
 
+        // Завершить игру из статистики партии
         document.getElementById('end-game-from-stats-btn').addEventListener('click', async () => {
             if (!gameData) return;
             if (confirm('Завершить игру?')) {
@@ -1228,6 +1309,7 @@
             }
         }
 
+        // Новая игра из финального экрана
         document.getElementById('new-game-from-final').addEventListener('click', () => {
             showScreen('create-game-screen');
         });
