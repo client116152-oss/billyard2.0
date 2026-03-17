@@ -679,10 +679,14 @@
                 return;
             }
             
+            console.log('Загруженные игры:', games); // Отладка
+            
             // Фильтруем игры, где участвует текущий пользователь и где data существует
             const userGames = games.filter(game => 
                 game.data && (game.data.player1_id === currentUser.id || game.data.player2_id === currentUser.id)
             );
+            
+            console.log('Игры пользователя:', userGames); // Отладка
             
             renderGamesList(userGames);
             renderOverallEfficiencyChart(userGames);
@@ -1020,10 +1024,15 @@
                 if (!currentPlayerRole) return;
                 if (currentPlayerRole === 'p2') {
                     gameData.player2_id = currentUser.id;
-                    await supabaseClient
+                    const { error: updateError } = await supabaseClient
                         .from('games')
                         .update({ data: gameData })
                         .eq('id', gameId);
+                    if (updateError) {
+                        console.error('Ошибка обновления player2_id:', updateError);
+                        alert('Не удалось подключиться к игре. Ошибка: ' + updateError.message);
+                        return;
+                    }
                 }
                 setupRealtimeChannel(gameId);
                 if (gameData.status === 'playing') renderGameScreenFromData(gameData);
@@ -1202,7 +1211,7 @@
                     updatedData.party.score[player] -= 1;
                 }
                 
-                // После отыгрыша ход переходит к другому игроку (как после промаха)
+                // После отыгрыша ход переходит к другому игроку
                 updatedData.party.currentPlayer = updatedData.party.currentPlayer === 1 ? 2 : 1;
                 
                 await broadcastUpdate(updatedData);
@@ -1228,9 +1237,6 @@
                     updatedData.party.stats[player].shtraf.shots += 1;
                     updatedData.party.stats[player].shtraf.made += 1;
                     updatedData.party.score[player] -= 1;
-                    
-                    // По желанию можно добавить смену игрока после штрафа, если нужно
-                    // updatedData.party.currentPlayer = updatedData.party.currentPlayer === 1 ? 2 : 1;
                     
                     await broadcastUpdate(updatedData);
                 } catch (error) {
