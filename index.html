@@ -9,6 +9,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        /* Все стили без изменений (из предыдущего ответа) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -1201,6 +1202,9 @@
                     updatedData.party.score[player] -= 1;
                 }
                 
+                // После отыгрыша ход переходит к другому игроку (как после промаха)
+                updatedData.party.currentPlayer = updatedData.party.currentPlayer === 1 ? 2 : 1;
+                
                 await broadcastUpdate(updatedData);
             } catch (error) {
                 console.error('Ошибка при отыгрыше:', error);
@@ -1224,6 +1228,9 @@
                     updatedData.party.stats[player].shtraf.shots += 1;
                     updatedData.party.stats[player].shtraf.made += 1;
                     updatedData.party.score[player] -= 1;
+                    
+                    // По желанию можно добавить смену игрока после штрафа, если нужно
+                    // updatedData.party.currentPlayer = updatedData.party.currentPlayer === 1 ? 2 : 1;
                     
                     await broadcastUpdate(updatedData);
                 } catch (error) {
