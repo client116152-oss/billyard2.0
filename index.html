@@ -357,19 +357,6 @@
             margin-bottom: 8px;
             cursor: pointer;
         }
-
-        /* Стили для контейнера логов */
-        #log-container {
-            background: #000;
-            color: #0f0;
-            padding: 10px;
-            font-size: 12px;
-            max-height: 200px;
-            overflow: auto;
-            border-radius: 10px;
-            margin-top: 10px;
-            border: 1px solid #2f4f2f;
-        }
     </style>
 </head>
 <body>
@@ -539,49 +526,9 @@
                 </div>
             </div>
         </div>
-
-        <!-- Кнопка показа логов и контейнер для логов -->
-        <div style="margin-top: 20px; text-align: center;">
-            <button id="show-logs-btn" class="secondary" style="font-size: 12px; padding: 5px;">Показать логи</button>
-        </div>
-        <div id="log-container" style="display: none;"></div>
     </div>
 
     <script>
-        // ========== ПЕРЕОПРЕДЕЛЕНИЕ CONSOLE.LOG ДЛЯ ВЫВОДА НА ЭКРАН ==========
-        const originalLog = console.log;
-        const logContainer = document.getElementById('log-container');
-        console.log = function(...args) {
-            // Выводим в консоль браузера
-            originalLog.apply(console, args);
-            // Добавляем в div на странице, если он существует
-            if (logContainer) {
-                const line = document.createElement('div');
-                line.textContent = args.map(arg => {
-                    if (typeof arg === 'object') {
-                        try {
-                            return JSON.stringify(arg, null, 2);
-                        } catch (e) {
-                            return String(arg);
-                        }
-                    }
-                    return String(arg);
-                }).join(' ');
-                logContainer.appendChild(line);
-                // Прокручиваем вниз
-                logContainer.scrollTop = logContainer.scrollHeight;
-            }
-        };
-
-        // Кнопка показа/скрытия логов
-        document.getElementById('show-logs-btn').addEventListener('click', () => {
-            if (logContainer.style.display === 'none') {
-                logContainer.style.display = 'block';
-            } else {
-                logContainer.style.display = 'none';
-            }
-        });
-
         // ========== НАСТРОЙКИ SUPABASE ==========
         const SUPABASE_URL = 'https://yldxaouqbhxgcojydrmj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZHhhb3VxYmh4Z2Nvanlkcm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NTI0NTgsImV4cCI6MjA4OTIyODQ1OH0.RSlOz8y591wMbMH-V7swnXJBzku3CuUiSdkVrqrUCG4';
@@ -731,22 +678,13 @@
                 return;
             }
             
-            console.log('Все игры из БД:', games); // Отладка
-            
             // Фильтруем игры, где участвует текущий пользователь и где data существует
             const userGames = games.filter(game => {
                 if (!game.data) {
-                    console.warn('Игра без data:', game);
                     return false;
                 }
-                const isUser = game.data.player1_id === currentUser.id || game.data.player2_id === currentUser.id;
-                if (isUser) {
-                    console.log('Найдена игра пользователя:', game.id, 'player1_id:', game.data.player1_id, 'player2_id:', game.data.player2_id);
-                }
-                return isUser;
+                return game.data.player1_id === currentUser.id || game.data.player2_id === currentUser.id;
             });
-            
-            console.log('Игры пользователя после фильтрации:', userGames);
             
             renderGamesList(userGames);
             renderOverallEfficiencyChart(userGames);
@@ -1057,7 +995,6 @@
             }
 
             gameData = game.data;
-            console.log('Данные игры при подключении:', gameData);
 
             document.getElementById('game-info').textContent = `Игра: ${gameData.player1_name} vs ${gameData.player2_name}`;
             const roleSelector = document.getElementById('role-selector');
@@ -1085,7 +1022,6 @@
                 if (!currentPlayerRole) return;
                 if (currentPlayerRole === 'p2') {
                     gameData.player2_id = currentUser.id;
-                    console.log('Обновление player2_id на:', currentUser.id);
                     const { error: updateError } = await supabaseClient
                         .from('games')
                         .update({ data: gameData })
@@ -1094,8 +1030,6 @@
                         console.error('Ошибка обновления player2_id:', updateError);
                         alert('Не удалось подключиться к игре. Ошибка: ' + updateError.message);
                         return;
-                    } else {
-                        console.log('player2_id успешно обновлён');
                     }
                 }
                 setupRealtimeChannel(gameId);
