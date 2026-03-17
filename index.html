@@ -9,7 +9,6 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        /* Тёмная тема, зелёные акценты, никакого фиолетового */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -359,7 +358,6 @@
             cursor: pointer;
         }
 
-        /* Кнопка логов: маленькая, полупрозрачная, в углу */
         #logs-toggle {
             position: fixed;
             bottom: 10px;
@@ -397,6 +395,7 @@
 </head>
 <body>
     <div id="app">
+        <!-- Все экраны (полный список) - они остаются без изменений из предыдущей версии -->
         <!-- Экран аутентификации -->
         <div id="auth-screen">
             <h2>Добро пожаловать</h2>
@@ -421,15 +420,21 @@
                 <canvas id="overall-efficiency-chart" width="400" height="200"></canvas>
             </div>
 
-            <!-- Кнопка "Новая игра" перенесена сюда: между графиком и историей игр -->
+            <!-- Кнопка "Новая игра" перенесена между графиком и историей игр -->
             <div style="margin: 20px 0 10px 0;">
                 <button id="new-game-from-profile" class="primary" style="width:100%;">+ Новая игра</button>
             </div>
 
             <h3>История игр</h3>
             <div id="games-list"></div>
+            <!-- Диагностическая кнопка для проверки RLS -->
+            <div style="margin-top: 10px;">
+                <button id="test-rls-btn" class="secondary" style="font-size: 12px; padding: 5px;">Тест RLS</button>
+            </div>
         </div>
 
+        <!-- Остальные экраны (game-detail-screen, party-detail-screen, create-game-screen, join-game-screen, game-screen, stats-screen, final-stats-screen, модальные окна) -->
+        <!-- ... (полностью идентичны предыдущей версии, здесь не дублируются для краткости, но в реальном коде должны быть) ... -->
         <!-- Экран детального просмотра игры -->
         <div id="game-detail-screen" class="hidden">
             <button id="back-to-profile" class="back-btn">← Назад</button>
@@ -566,15 +571,13 @@
             </div>
         </div>
 
-        <!-- Кнопка и контейнер для логов (видимые, но маленькие) -->
+        <!-- Кнопка и контейнер для логов -->
         <div id="logs-toggle">📋 логи</div>
         <div id="log-container"></div>
     </div>
 
     <script>
-        // ============================================================
-        // ЛОГИРОВАНИЕ: перехватываем console.log и выводим на экран
-        // ============================================================
+        // ========== ЛОГИРОВАНИЕ ==========
         const originalLog = console.log;
         const originalError = console.error;
         const logContainer = document.getElementById('log-container');
@@ -619,7 +622,6 @@
             }
         };
 
-        // По клику на кнопку показываем/скрываем контейнер с логами
         logsToggle.addEventListener('click', () => {
             if (logContainer.style.display === 'none' || logContainer.style.display === '') {
                 logContainer.style.display = 'block';
@@ -628,33 +630,27 @@
             }
         });
 
-        // ============================================================
-        // НАСТРОЙКИ SUPABASE (ваши данные)
-        // ============================================================
+        // ========== НАСТРОЙКИ SUPABASE ==========
         const SUPABASE_URL = 'https://yldxaouqbhxgcojydrmj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZHhhb3VxYmh4Z2Nvanlkcm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NTI0NTgsImV4cCI6MjA4OTIyODQ1OH0.RSlOz8y591wMbMH-V7swnXJBzku3CuUiSdkVrqrUCG4';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ============================================================
-        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-        // ============================================================
-        let currentUser = null;                // текущий пользователь (объект из auth)
-        let currentGameId = null;              // ID текущей игры
-        let currentPlayerRole = null;           // 'p1' или 'p2' для текущего пользователя
-        let gameChannel = null;                 // канал Realtime
-        let gameData = null;                    // данные текущей игры (объект из поля data)
-        let chartOverall = null;                 // график общей результативности
-        let chartParty = null;                   // график по партиям
-        let currentGameDetail = null;            // данные игры при просмотре деталей
-        let currentParties = null;                // список партий текущей игры
+        // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
+        let currentUser = null;
+        let currentGameId = null;
+        let currentPlayerRole = null; // 'p1' или 'p2'
+        let gameChannel = null;
+        let gameData = null;
+        let chartOverall = null;
+        let chartParty = null;
+        let currentGameDetail = null;
+        let currentParties = null;
 
-        let isGameActionInProgress = false;      // защита от множественных кликов в игре
-        let isAuthActionInProgress = false;      // защита от множественных кликов при аутентификации
-        let lastGameState = null;                 // предыдущее состояние игры для кнопки "Назад"
+        let isGameActionInProgress = false;
+        let isAuthActionInProgress = false;
+        let lastGameState = null;
 
-        // ============================================================
-        // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-        // ============================================================
+        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function getGameIdFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('game');
@@ -686,13 +682,13 @@
             return Math.random().toString(36).substring(2, 10);
         }
 
-        // ============================================================
-        // АУТЕНТИФИКАЦИЯ (Supabase Auth)
-        // ============================================================
+        // ========== АУТЕНТИФИКАЦИЯ ==========
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 currentUser = session.user;
+                console.log('✅ Текущий пользователь ID:', currentUser.id);
+                
                 // Загружаем или создаём профиль
                 const { data: profile, error: profileError } = await supabaseClient
                     .from('profiles')
@@ -717,11 +713,47 @@
                     currentUser.username = username;
                 }
                 return true;
+            } else {
+                console.log('❌ Сессия не найдена');
+                return false;
             }
-            return false;
         }
 
-        // Обработчики кнопок входа/регистрации
+        // ========== ДИАГНОСТИКА RLS ==========
+        async function testRLS() {
+            console.log('🔍 ТЕСТИРОВАНИЕ RLS');
+            console.log('Текущий пользователь ID:', currentUser?.id);
+            
+            // Тест 1: прямая выборка всех игр
+            const { data: allGames, error: allError } = await supabaseClient
+                .from('games')
+                .select('*');
+            
+            console.log('Все игры (без фильтра):', allGames);
+            if (allError) console.error('Ошибка:', allError);
+            
+            // Тест 2: выборка с явным условием по player2_id
+            if (currentUser) {
+                const { data: gamesAsPlayer2, error: p2Error } = await supabaseClient
+                    .from('games')
+                    .select('*')
+                    .filter('data->>player2_id', 'eq', currentUser.id);
+                
+                console.log('Игры где я player2 (фильтр на клиенте):', gamesAsPlayer2);
+                if (p2Error) console.error('Ошибка:', p2Error);
+            }
+            
+            // Тест 3: проверка наличия сессии
+            const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+            console.log('Данные сессии:', sessionData);
+            
+            alert('RLS тест завершён. Смотрите консоль (кнопка "📋 логи")');
+        }
+
+        // Обработчик кнопки тестирования
+        document.getElementById('test-rls-btn')?.addEventListener('click', testRLS);
+
+        // ========== ОБРАБОТЧИКИ АУТЕНТИФИКАЦИИ ==========
         document.getElementById('auth-login-btn').addEventListener('click', async () => {
             if (isAuthActionInProgress) return;
             isAuthActionInProgress = true;
@@ -771,13 +803,11 @@
             showScreen('auth-screen');
         });
 
-        // ============================================================
-        // ЛИЧНЫЙ КАБИНЕТ (профиль)
-        // ============================================================
+        // ========== ЛИЧНЫЙ КАБИНЕТ ==========
         async function loadProfileScreen() {
             document.getElementById('profile-username').textContent = `Привет, ${currentUser.username}!`;
             
-            // Загружаем все игры из таблицы games
+            // Загружаем все игры
             const { data: games, error } = await supabaseClient
                 .from('games')
                 .select('*')
@@ -789,7 +819,8 @@
                 return;
             }
             
-            console.log('Все игры из БД:', games); // Отладка: выводим все игры
+            console.log('Все игры из БД (до фильтрации):', games);
+            console.log('Текущий пользователь ID:', currentUser.id);
             
             // Фильтруем игры, где участвует текущий пользователь
             const userGames = games.filter(game => {
@@ -797,9 +828,16 @@
                     console.warn('Игра без data:', game);
                     return false;
                 }
-                const isUser = game.data.player1_id === currentUser.id || game.data.player2_id === currentUser.id;
+                const isPlayer1 = game.data.player1_id === currentUser.id;
+                const isPlayer2 = game.data.player2_id === currentUser.id;
+                const isUser = isPlayer1 || isPlayer2;
+                
                 if (isUser) {
-                    console.log('Найдена игра пользователя:', game.id, 'player1_id:', game.data.player1_id, 'player2_id:', game.data.player2_id);
+                    console.log('✅ Найдена игра пользователя:', game.id, 
+                                'player1_id:', game.data.player1_id, 
+                                'player2_id:', game.data.player2_id,
+                                'isPlayer1:', isPlayer1,
+                                'isPlayer2:', isPlayer2);
                 }
                 return isUser;
             });
@@ -811,7 +849,6 @@
             showScreen('profile-screen');
         }
 
-        // Отрисовка списка игр в профиле
         function renderGamesList(games) {
             const container = document.getElementById('games-list');
             if (games.length === 0) {
@@ -849,7 +886,6 @@
             });
         }
 
-        // График общей результативности по играм
         function renderOverallEfficiencyChart(games) {
             const ctx = document.getElementById('overall-efficiency-chart').getContext('2d');
             if (chartOverall) chartOverall.destroy();
@@ -884,9 +920,7 @@
             });
         }
 
-        // ============================================================
-        // ДЕТАЛИ ИГРЫ (просмотр конкретной игры)
-        // ============================================================
+        // ========== ДЕТАЛИ ИГРЫ ==========
         async function loadGameDetail(gameId) {
             const { data: game, error: gameError } = await supabaseClient
                 .from('games')
@@ -975,9 +1009,7 @@
             });
         }
 
-        // ============================================================
-        // ДЕТАЛИ ПАРТИИ
-        // ============================================================
+        // ========== ДЕТАЛИ ПАРТИИ ==========
         async function loadPartyDetail(partyId) {
             const { data: party, error } = await supabaseClient
                 .from('parties')
@@ -1021,7 +1053,6 @@
             showScreen('party-detail-screen');
         }
 
-        // Универсальная функция отрисовки таблицы статистики (для партии и итогов)
         function renderStatsTable(containerId, stats, totalScore) {
             const container = document.getElementById(containerId);
             const categories = [
@@ -1037,7 +1068,7 @@
                 const stat = stats[cat.key] || { shots:0, made:0 };
                 let display;
                 if (cat.key === 'otygrysh') {
-                    display = `${stat.made}/${stat.shots}`; // для отыгрышей: (без штрафа / всего)
+                    display = `${stat.made}/${stat.shots}`;
                 } else {
                     display = `${stat.made}/${stat.shots}`;
                 }
@@ -1049,7 +1080,6 @@
                     </div>
                 `;
             }
-            // Общая результативность: забитые шары / все удары (включая отыгрыши, но не штрафы)
             const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0);
             const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0);
             const totalEfficiency = totalShots > 0 ? ((totalMade / totalShots) * 100).toFixed(1) : '0.0';
@@ -1057,9 +1087,7 @@
             container.innerHTML = html;
         }
 
-        // ============================================================
-        // СОЗДАНИЕ НОВОЙ ИГРЫ
-        // ============================================================
+        // ========== СОЗДАНИЕ НОВОЙ ИГРЫ ==========
         document.getElementById('new-game-from-profile').addEventListener('click', () => {
             document.getElementById('player1-name').value = currentUser.username;
             showScreen('create-game-screen');
@@ -1107,9 +1135,7 @@
             setupRealtimeChannel(gameId);
         });
 
-        // ============================================================
-        // ПОДКЛЮЧЕНИЕ К ИГРЕ (для второго игрока)
-        // ============================================================
+        // ========== ПОДКЛЮЧЕНИЕ К ИГРЕ ==========
         async function joinGame(gameId) {
             currentGameId = gameId;
             updateUrlWithGameId(gameId);
@@ -1178,9 +1204,7 @@
             };
         }
 
-        // ============================================================
-        // REALTIME (каналы broadcast)
-        // ============================================================
+        // ========== REALTIME ==========
         function setupRealtimeChannel(gameId) {
             if (gameChannel) supabaseClient.removeChannel(gameChannel);
             gameChannel = supabaseClient.channel(`game:${gameId}`, { config: { broadcast: { self: true } } });
@@ -1213,9 +1237,7 @@
             }
         }
 
-        // ============================================================
-        // ИГРОВОЙ ЭКРАН
-        // ============================================================
+        // ========== ИГРОВОЙ ЭКРАН ==========
         function renderGameScreenFromData(data) {
             showScreen('game-screen');
             document.getElementById('current-score').textContent = `${data.party.score.p1}:${data.party.score.p2}`;
@@ -1256,7 +1278,6 @@
             }
         }
 
-        // Обработка забитого шара
         async function handleAddMade(category, currentData) {
             if (isGameActionInProgress) return;
             isGameActionInProgress = true;
@@ -1283,7 +1304,6 @@
             }
         }
 
-        // Завершение партии (достигнуто 8 очков)
         async function finishParty(updatedData) {
             const winner = updatedData.party.score.p1 >= 8 ? 'p1' : 'p2';
             if (winner === 'p1') updatedData.match_wins_p1 += 1;
@@ -1306,7 +1326,6 @@
                 return;
             }
 
-            // Добавляем статистику партии в общую статистику игры
             for (let p of ['p1', 'p2']) {
                 for (let cat of ['break','own','opponent','random','otygrysh','shtraf']) {
                     updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
@@ -1322,9 +1341,7 @@
             renderStatsScreenFromData(updatedData);
         }
 
-        // ============================================================
-        // ОТЫГРЫШИ И ШТРАФЫ
-        // ============================================================
+        // ========== ОТЫГРЫШИ И ШТРАФЫ ==========
         document.getElementById('otygrysh-btn').addEventListener('click', () => {
             if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
                 document.getElementById('otygrysh-modal').classList.remove('hidden');
@@ -1391,9 +1408,7 @@
             } else alert('Сейчас не ваш ход');
         });
 
-        // ============================================================
-        // КНОПКА "НАЗАД" (отмена последнего действия)
-        // ============================================================
+        // ========== КНОПКА "НАЗАД" ==========
         document.getElementById('undo-btn').addEventListener('click', async () => {
             if (!gameData || !lastGameState) {
                 alert('Нет действия для отмены');
@@ -1417,9 +1432,7 @@
             }
         });
 
-        // ============================================================
-        // СЛЕДУЮЩИЙ ХОД (выбор промаха)
-        // ============================================================
+        // ========== СЛЕДУЮЩИЙ ХОД ==========
         document.getElementById('next-turn-btn').addEventListener('click', () => {
             if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
                 lastGameState = JSON.parse(JSON.stringify(gameData));
@@ -1452,9 +1465,7 @@
             }
         }
 
-        // ============================================================
-        // ЗАВЕРШИТЬ ИГРУ (досрочно)
-        // ============================================================
+        // ========== ЗАВЕРШИТЬ ИГРУ ==========
         document.getElementById('end-match-btn').addEventListener('click', async () => {
             if (!gameData) return;
             if (confirm('Завершить игру?')) {
@@ -1464,9 +1475,7 @@
             }
         });
 
-        // ============================================================
-        // СТАРТ ИГРЫ (нажимает первый игрок)
-        // ============================================================
+        // ========== СТАРТ ИГРЫ ==========
         document.getElementById('start-game-btn').addEventListener('click', async () => {
             const updatedData = JSON.parse(JSON.stringify(gameData));
             updatedData.status = 'playing';
@@ -1485,9 +1494,7 @@
             renderGameScreenFromData(updatedData);
         });
 
-        // ============================================================
-        // СТАТИСТИКА ПАРТИИ (экран после завершения партии)
-        // ============================================================
+        // ========== СТАТИСТИКА ПАРТИИ ==========
         function renderStatsScreenFromData(data) {
             showScreen('stats-screen');
             document.getElementById('match-score-stats').textContent = `${data.party.score.p1}:${data.party.score.p2}`;
@@ -1521,9 +1528,7 @@
             }
         }
 
-        // ============================================================
-        // СЛЕДУЮЩАЯ ПАРТИЯ
-        // ============================================================
+        // ========== СЛЕДУЮЩАЯ ПАРТИЯ ==========
         document.getElementById('next-party-btn').addEventListener('click', async () => {
             if (!gameData) return;
             const updatedData = JSON.parse(JSON.stringify(gameData));
@@ -1542,9 +1547,7 @@
             await broadcastUpdate(updatedData);
         });
 
-        // ============================================================
-        // ЗАВЕРШИТЬ ИГРУ ИЗ СТАТИСТИКИ ПАРТИИ
-        // ============================================================
+        // ========== ЗАВЕРШИТЬ ИГРУ ИЗ СТАТИСТИКИ ==========
         document.getElementById('end-game-from-stats-btn').addEventListener('click', async () => {
             if (!gameData) return;
             if (confirm('Завершить игру?')) {
@@ -1554,9 +1557,7 @@
             }
         });
 
-        // ============================================================
-        // ИТОГОВАЯ СТАТИСТИКА (экран после завершения игры)
-        // ============================================================
+        // ========== ИТОГОВАЯ СТАТИСТИКА ==========
         function renderFinalStatsFromData(data) {
             showScreen('final-stats-screen');
             document.getElementById('final-match-score').textContent = `${data.match_wins_p1}:${data.match_wins_p2}`;
@@ -1590,16 +1591,12 @@
             }
         }
 
-        // ============================================================
-        // НОВАЯ ИГРА ИЗ ФИНАЛЬНОГО ЭКРАНА
-        // ============================================================
+        // ========== НОВАЯ ИГРА ИЗ ФИНАЛЬНОГО ЭКРАНА ==========
         document.getElementById('new-game-from-final').addEventListener('click', () => {
             showScreen('create-game-screen');
         });
 
-        // ============================================================
-        // НАВИГАЦИЯ НАЗАД (кнопки "← Назад")
-        // ============================================================
+        // ========== НАВИГАЦИЯ НАЗАД ==========
         document.getElementById('back-to-profile').addEventListener('click', loadProfileScreen);
         document.getElementById('back-to-game-detail').addEventListener('click', () => {
             if (currentGameDetail) loadGameDetail(currentGameDetail.id);
@@ -1607,9 +1604,7 @@
         });
         document.getElementById('back-from-join').addEventListener('click', loadProfileScreen);
 
-        // ============================================================
-        // КОПИРОВАНИЕ ССЫЛКИ
-        // ============================================================
+        // ========== КОПИРОВАНИЕ ССЫЛКИ ==========
         document.getElementById('copy-link-btn').addEventListener('click', () => {
             const linkInput = document.getElementById('game-link');
             linkInput.select();
@@ -1617,9 +1612,7 @@
             alert('Ссылка скопирована');
         });
 
-        // ============================================================
-        // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
-        // ============================================================
+        // ========== ИНИЦИАЛИЗАЦИЯ ==========
         (async function init() {
             const session = await checkSession();
             if (session) {
