@@ -358,14 +358,7 @@
             cursor: pointer;
         }
 
-        /* Стили для кнопки логов (невидимая) */
-        #show-logs-btn {
-            visibility: hidden;
-            height: 0;
-            padding: 0;
-            margin: 0;
-            border: none;
-        }
+        /* Стили для контейнера логов (скрыт по умолчанию) */
         #log-container {
             background: #000;
             color: #0f0;
@@ -378,11 +371,13 @@
             border: 1px solid #2f4f2f;
             display: none;
         }
+        #show-logs-btn {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div id="app">
-        <!-- Все экраны (как в последней рабочей версии) -->
         <!-- Экран аутентификации -->
         <div id="auth-screen">
             <h2>Добро пожаловать</h2>
@@ -549,7 +544,7 @@
             </div>
         </div>
 
-        <!-- Кнопка показа логов (невидимая) и контейнер логов -->
+        <!-- Скрытая кнопка и контейнер для логов -->
         <div style="margin-top: 20px; text-align: center;">
             <button id="show-logs-btn" class="secondary" style="font-size: 12px; padding: 5px;">Показать логи</button>
         </div>
@@ -561,9 +556,7 @@
         const originalLog = console.log;
         const logContainer = document.getElementById('log-container');
         console.log = function(...args) {
-            // Выводим в консоль браузера
             originalLog.apply(console, args);
-            // Добавляем в div на странице, если он существует
             if (logContainer) {
                 const line = document.createElement('div');
                 line.textContent = args.map(arg => {
@@ -577,19 +570,25 @@
                     return String(arg);
                 }).join(' ');
                 logContainer.appendChild(line);
-                // Прокручиваем вниз
                 logContainer.scrollTop = logContainer.scrollHeight;
             }
         };
 
-        // Кнопка показа/скрытия логов (остаётся, но скрыта через CSS)
-        document.getElementById('show-logs-btn').addEventListener('click', () => {
-            if (logContainer.style.display === 'none') {
-                logContainer.style.display = 'block';
-            } else {
-                logContainer.style.display = 'none';
-            }
-        });
+        // Кнопка показа/скрытия логов (скрыта по умолчанию)
+        const showLogsBtn = document.getElementById('show-logs-btn');
+        showLogsBtn.style.display = 'none'; // делаем кнопку невидимой
+
+        // Активируем показ логов по двойному клику на заголовке "Личный кабинет"
+        const profileHeading = document.querySelector('#profile-screen h2');
+        if (profileHeading) {
+            profileHeading.addEventListener('dblclick', () => {
+                if (logContainer.style.display === 'none') {
+                    logContainer.style.display = 'block';
+                } else {
+                    logContainer.style.display = 'none';
+                }
+            });
+        }
 
         // ========== НАСТРОЙКИ SUPABASE ==========
         const SUPABASE_URL = 'https://yldxaouqbhxgcojydrmj.supabase.co';
@@ -1066,7 +1065,6 @@
             }
 
             gameData = game.data;
-            console.log('Данные игры при подключении:', gameData);
 
             document.getElementById('game-info').textContent = `Игра: ${gameData.player1_name} vs ${gameData.player2_name}`;
             const roleSelector = document.getElementById('role-selector');
@@ -1094,7 +1092,6 @@
                 if (!currentPlayerRole) return;
                 if (currentPlayerRole === 'p2') {
                     gameData.player2_id = currentUser.id;
-                    console.log('Обновление player2_id на:', currentUser.id);
                     const { error: updateError } = await supabaseClient
                         .from('games')
                         .update({ data: gameData })
@@ -1103,8 +1100,6 @@
                         console.error('Ошибка обновления player2_id:', updateError);
                         alert('Не удалось подключиться к игре. Ошибка: ' + updateError.message);
                         return;
-                    } else {
-                        console.log('player2_id успешно обновлён');
                     }
                 }
                 setupRealtimeChannel(gameId);
