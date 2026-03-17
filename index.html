@@ -679,14 +679,22 @@
                 return;
             }
             
-            console.log('Загруженные игры:', games); // Отладка
+            console.log('Все игры из БД:', games); // Отладка: смотрим все игры
             
             // Фильтруем игры, где участвует текущий пользователь и где data существует
-            const userGames = games.filter(game => 
-                game.data && (game.data.player1_id === currentUser.id || game.data.player2_id === currentUser.id)
-            );
+            const userGames = games.filter(game => {
+                if (!game.data) {
+                    console.warn('Игра без data:', game);
+                    return false;
+                }
+                const isUser = game.data.player1_id === currentUser.id || game.data.player2_id === currentUser.id;
+                if (isUser) {
+                    console.log('Найдена игра пользователя:', game.id, 'player1_id:', game.data.player1_id, 'player2_id:', game.data.player2_id);
+                }
+                return isUser;
+            });
             
-            console.log('Игры пользователя:', userGames); // Отладка
+            console.log('Игры пользователя после фильтрации:', userGames);
             
             renderGamesList(userGames);
             renderOverallEfficiencyChart(userGames);
@@ -997,6 +1005,7 @@
             }
 
             gameData = game.data;
+            console.log('Данные игры при подключении:', gameData);
 
             document.getElementById('game-info').textContent = `Игра: ${gameData.player1_name} vs ${gameData.player2_name}`;
             const roleSelector = document.getElementById('role-selector');
@@ -1024,6 +1033,7 @@
                 if (!currentPlayerRole) return;
                 if (currentPlayerRole === 'p2') {
                     gameData.player2_id = currentUser.id;
+                    console.log('Обновление player2_id на:', currentUser.id);
                     const { error: updateError } = await supabaseClient
                         .from('games')
                         .update({ data: gameData })
@@ -1032,6 +1042,8 @@
                         console.error('Ошибка обновления player2_id:', updateError);
                         alert('Не удалось подключиться к игре. Ошибка: ' + updateError.message);
                         return;
+                    } else {
+                        console.log('player2_id успешно обновлён');
                     }
                 }
                 setupRealtimeChannel(gameId);
