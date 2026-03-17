@@ -421,9 +421,13 @@
                 <canvas id="overall-efficiency-chart" width="400" height="200"></canvas>
             </div>
 
+            <!-- Кнопка "Новая игра" перенесена сюда: между графиком и историей игр -->
+            <div style="margin: 20px 0 10px 0;">
+                <button id="new-game-from-profile" class="primary" style="width:100%;">+ Новая игра</button>
+            </div>
+
             <h3>История игр</h3>
             <div id="games-list"></div>
-            <button id="new-game-from-profile" class="primary" style="width:100%; margin-top:15px;">+ Новая игра</button>
         </div>
 
         <!-- Экран детального просмотра игры -->
@@ -572,6 +576,7 @@
         // ЛОГИРОВАНИЕ: перехватываем console.log и выводим на экран
         // ============================================================
         const originalLog = console.log;
+        const originalError = console.error;
         const logContainer = document.getElementById('log-container');
         const logsToggle = document.getElementById('logs-toggle');
 
@@ -579,6 +584,26 @@
             originalLog.apply(console, args);
             if (logContainer) {
                 const line = document.createElement('div');
+                line.textContent = args.map(arg => {
+                    if (typeof arg === 'object') {
+                        try {
+                            return JSON.stringify(arg, null, 2);
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                }).join(' ');
+                logContainer.appendChild(line);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            if (logContainer) {
+                const line = document.createElement('div');
+                line.style.color = '#ff8a80';
                 line.textContent = args.map(arg => {
                     if (typeof arg === 'object') {
                         try {
@@ -1129,6 +1154,7 @@
                 if (!currentPlayerRole) return;
                 if (currentPlayerRole === 'p2') {
                     gameData.player2_id = currentUser.id;
+                    console.log('Обновление player2_id на:', currentUser.id);
                     const { error: updateError } = await supabaseClient
                         .from('games')
                         .update({ data: gameData })
@@ -1137,6 +1163,9 @@
                         console.error('Ошибка обновления player2_id:', updateError);
                         alert('Не удалось подключиться к игре. Ошибка: ' + updateError.message);
                         return;
+                    } else {
+                        console.log('player2_id успешно обновлён');
+                        alert('Вы успешно подключились к игре! Нажмите "Назад" для возврата в профиль.');
                     }
                 }
                 setupRealtimeChannel(gameId);
