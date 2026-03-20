@@ -9,6 +9,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        /* Стили (такие же, как в предыдущей версии) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -358,40 +359,12 @@
             cursor: pointer;
         }
 
-        /* Кнопка логов скрыта, но доступна по двойному клику на заголовке профиля */
+        /* Логи скрыты */
         #logs-toggle {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background-color: #1a261a;
-            color: #8bc34a;
-            border: 1px solid #2f4f2f;
-            border-radius: 20px;
-            padding: 5px 10px;
-            font-size: 12px;
-            opacity: 0.7;
-            cursor: pointer;
-            z-index: 2000;
             display: none;
-        }
-        #logs-toggle:hover {
-            opacity: 1;
         }
         #log-container {
-            position: fixed;
-            bottom: 50px;
-            right: 10px;
-            width: 300px;
-            max-height: 400px;
-            background: #000;
-            color: #0f0;
-            padding: 10px;
-            font-size: 11px;
-            overflow: auto;
-            border-radius: 10px;
-            border: 1px solid #2f4f2f;
             display: none;
-            z-index: 1999;
         }
     </style>
 </head>
@@ -412,29 +385,24 @@
         <!-- Экран личного кабинета -->
         <div id="profile-screen" class="hidden">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 id="profile-heading">Личный кабинет</h2>
+                <h2>Личный кабинет</h2>
                 <button id="logout-btn" class="secondary" style="padding: 8px 15px;">Выйти</button>
             </div>
             <div id="profile-username" style="font-size: 18px; margin-bottom: 15px;"></div>
-            
             <div class="chart-container">
                 <canvas id="overall-efficiency-chart" width="400" height="200"></canvas>
             </div>
-
-            <!-- Кнопка "Новая игра" между графиком и историей -->
             <div style="margin: 20px 0 10px 0;">
                 <button id="new-game-from-profile" class="primary" style="width:100%;">+ Новая игра</button>
             </div>
-
             <h3>История игр</h3>
             <div id="games-list"></div>
-            <!-- Кнопка принудительного обновления списка игр -->
             <div style="margin-top: 10px;">
                 <button id="refresh-games-btn" class="secondary" style="font-size: 12px; padding: 5px;">🔄 Обновить список</button>
             </div>
         </div>
 
-        <!-- Экран детального просмотра игры -->
+        <!-- Остальные экраны (сокращённо, но они должны быть) -->
         <div id="game-detail-screen" class="hidden">
             <button id="back-to-profile" class="back-btn">← Назад</button>
             <h2 id="detail-game-title">Игра</h2>
@@ -446,7 +414,6 @@
             <div id="parties-list"></div>
         </div>
 
-        <!-- Экран детального просмотра партии -->
         <div id="party-detail-screen" class="hidden">
             <button id="back-to-game-detail" class="back-btn">← Назад</button>
             <h2>Статистика партии</h2>
@@ -459,7 +426,6 @@
             <div id="party-player2-stats" class="stats-table hidden"></div>
         </div>
 
-        <!-- Экран создания игры -->
         <div id="create-game-screen" class="hidden">
             <button id="back-from-create" class="back-btn">← Назад</button>
             <h2>Новая игра</h2>
@@ -483,7 +449,6 @@
             </div>
         </div>
 
-        <!-- Экран подключения к игре (для второго игрока) -->
         <div id="join-game-screen" class="hidden">
             <button id="back-from-join" class="back-btn">← Назад</button>
             <h2>Подключение к игре</h2>
@@ -492,7 +457,6 @@
             <button id="confirm-role-btn" class="primary" style="width:100%;" disabled>Подтвердить роль</button>
         </div>
 
-        <!-- Основной игровой экран -->
         <div id="game-screen" class="hidden">
             <div class="score-header">
                 <span class="current-score" id="current-score">0:0</span>
@@ -511,7 +475,6 @@
             </div>
         </div>
 
-        <!-- Экран статистики партии (с кнопкой "В профиль") -->
         <div id="stats-screen" class="hidden">
             <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
                 <button id="back-to-profile-from-stats" class="back-btn">← В профиль</button>
@@ -531,7 +494,6 @@
             </div>
         </div>
 
-        <!-- Экран итоговой статистики (с кнопкой "В профиль") -->
         <div id="final-stats-screen" class="hidden">
             <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
                 <button id="back-to-profile-from-final" class="back-btn">← В профиль</button>
@@ -550,7 +512,6 @@
             </div>
         </div>
 
-        <!-- Модальные окна -->
         <div id="miss-modal" class="modal-overlay hidden">
             <div class="modal-content">
                 <h3>На каком шаре промахнулись?</h3>
@@ -570,7 +531,6 @@
             </div>
         </div>
 
-        <!-- Скрытый контейнер для логов (доступен по двойному клику на заголовке профиля) -->
         <div id="log-container"></div>
         <div id="logs-toggle">📋 логи</div>
     </div>
@@ -581,8 +541,6 @@
         const originalError = console.error;
         const logContainer = document.getElementById('log-container');
         const logsToggle = document.getElementById('logs-toggle');
-
-        // Скрываем кнопку логов, но оставляем функциональность по двойному клику на заголовке профиля
         logsToggle.style.display = 'none';
 
         console.log = function(...args) {
@@ -623,18 +581,6 @@
                 logContainer.scrollTop = logContainer.scrollHeight;
             }
         };
-
-        // Двойной клик по заголовку личного кабинета показывает/скрывает логи
-        const profileHeading = document.getElementById('profile-heading');
-        if (profileHeading) {
-            profileHeading.addEventListener('dblclick', () => {
-                if (logContainer.style.display === 'none' || logContainer.style.display === '') {
-                    logContainer.style.display = 'block';
-                } else {
-                    logContainer.style.display = 'none';
-                }
-            });
-        }
 
         // ========== НАСТРОЙКИ SUPABASE ==========
         const SUPABASE_URL = 'https://yldxaouqbhxgcojydrmj.supabase.co';
@@ -682,6 +628,11 @@
                 if (el) el.classList.add('hidden');
             });
             screen.classList.remove('hidden');
+
+            // Автоматически обновляем профиль при его показе
+            if (screenId === 'profile-screen' && currentUser) {
+                loadProfileScreen();
+            }
         }
 
         function generateGameId() {
@@ -723,7 +674,6 @@
             }
         }
 
-        // ========== ОБРАБОТЧИКИ АУТЕНТИФИКАЦИИ ==========
         document.getElementById('auth-login-btn').addEventListener('click', async () => {
             if (isAuthActionInProgress) return;
             isAuthActionInProgress = true;
@@ -738,7 +688,7 @@
                 document.getElementById('auth-message').textContent = error.message;
             } else {
                 await checkSession();
-                loadProfileScreen();
+                showScreen('profile-screen');
             }
 
             document.getElementById('auth-login-btn').disabled = false;
@@ -775,6 +725,7 @@
 
         // ========== ЛИЧНЫЙ КАБИНЕТ ==========
         async function loadProfileScreen() {
+            if (!currentUser) return;
             document.getElementById('profile-username').textContent = `Привет, ${currentUser.username}!`;
             
             const { data: games, error } = await supabaseClient
@@ -794,7 +745,6 @@
             
             renderGamesList(games || []);
             renderOverallEfficiencyChart(games || []);
-            showScreen('profile-screen');
         }
 
         function renderGamesList(games) {
@@ -807,7 +757,7 @@
             }
             
             let html = '';
-            const reversed = [...games].reverse(); // сначала новые
+            const reversed = [...games].reverse();
             
             for (let game of reversed) {
                 try {
@@ -891,7 +841,7 @@
             
             if (gameError || !game || !game.data) {
                 alert('Игра не найдена');
-                loadProfileScreen();
+                showScreen('profile-screen');
                 return;
             }
             
@@ -1052,7 +1002,7 @@
             showScreen('create-game-screen');
         });
 
-        document.getElementById('back-from-create').addEventListener('click', loadProfileScreen);
+        document.getElementById('back-from-create').addEventListener('click', () => showScreen('profile-screen'));
 
         document.getElementById('create-game-btn').addEventListener('click', async () => {
             const p1Name = document.getElementById('player1-name').value.trim() || currentUser.username;
@@ -1111,7 +1061,7 @@
             if (error || !game || !game.data) {
                 console.error('Ошибка загрузки игры:', error);
                 alert('Игра не найдена. Проверьте ссылку или обратитесь к создателю игры.');
-                loadProfileScreen();
+                showScreen('profile-screen');
                 return;
             }
 
@@ -1155,19 +1105,19 @@
                         return;
                     } else {
                         console.log('player2_id успешно обновлён');
-                        alert('Вы успешно подключились к игре!');
-                        // После подключения обновляем профиль, чтобы сразу увидеть игру
-                        loadProfileScreen();
+                        // Переходим в профиль и обновляем список игр
+                        showScreen('profile-screen');
                     }
                 }
                 setupRealtimeChannel(gameId);
-                if (gameData.status === 'playing') renderGameScreenFromData(gameData);
-                else if (gameData.status === 'partyFinished') renderStatsScreenFromData(gameData);
-                else if (gameData.status === 'finished') renderFinalStatsFromData(gameData);
-                else {
-                    // Если игра ещё не началась, остаёмся на экране ожидания, но профиль уже обновлён
-                    // Поэтому после подтверждения роли переходим в профиль
-                    loadProfileScreen();
+                if (gameData.status === 'playing') {
+                    renderGameScreenFromData(gameData);
+                } else if (gameData.status === 'partyFinished') {
+                    renderStatsScreenFromData(gameData);
+                } else if (gameData.status === 'finished') {
+                    renderFinalStatsFromData(gameData);
+                } else {
+                    // Если игра ещё не началась, переходим в профиль (уже сделано выше)
                 }
             };
         }
@@ -1546,19 +1496,19 @@
         }
 
         // Кнопки "В профиль"
-        document.getElementById('back-to-profile-from-stats')?.addEventListener('click', loadProfileScreen);
-        document.getElementById('back-to-profile-from-final')?.addEventListener('click', loadProfileScreen);
+        document.getElementById('back-to-profile-from-stats')?.addEventListener('click', () => showScreen('profile-screen'));
+        document.getElementById('back-to-profile-from-final')?.addEventListener('click', () => showScreen('profile-screen'));
         document.getElementById('new-game-from-final').addEventListener('click', () => {
             showScreen('create-game-screen');
         });
 
-        document.getElementById('back-to-profile').addEventListener('click', loadProfileScreen);
+        document.getElementById('back-to-profile').addEventListener('click', () => showScreen('profile-screen'));
         document.getElementById('back-to-game-detail').addEventListener('click', () => {
             if (currentGameDetail) loadGameDetail(currentGameDetail.id);
-            else loadProfileScreen();
+            else showScreen('profile-screen');
         });
-        document.getElementById('back-from-join').addEventListener('click', loadProfileScreen);
-        document.getElementById('refresh-games-btn').addEventListener('click', loadProfileScreen);
+        document.getElementById('back-from-join').addEventListener('click', () => showScreen('profile-screen'));
+        document.getElementById('refresh-games-btn').addEventListener('click', () => loadProfileScreen());
 
         document.getElementById('copy-link-btn').addEventListener('click', () => {
             const linkInput = document.getElementById('game-link');
@@ -1574,7 +1524,7 @@
                 if (gameIdFromUrl) {
                     await joinGame(gameIdFromUrl);
                 } else {
-                    loadProfileScreen();
+                    showScreen('profile-screen');
                 }
             } else {
                 showScreen('auth-screen');
