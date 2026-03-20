@@ -358,6 +358,7 @@
             cursor: pointer;
         }
 
+        /* Кнопка логов скрыта, но доступна по двойному клику на заголовке профиля */
         #logs-toggle {
             position: fixed;
             bottom: 10px;
@@ -371,6 +372,7 @@
             opacity: 0.7;
             cursor: pointer;
             z-index: 2000;
+            display: none;
         }
         #logs-toggle:hover {
             opacity: 1;
@@ -410,7 +412,7 @@
         <!-- Экран личного кабинета -->
         <div id="profile-screen" class="hidden">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2>Личный кабинет</h2>
+                <h2 id="profile-heading">Личный кабинет</h2>
                 <button id="logout-btn" class="secondary" style="padding: 8px 15px;">Выйти</button>
             </div>
             <div id="profile-username" style="font-size: 18px; margin-bottom: 15px;"></div>
@@ -429,9 +431,6 @@
             <!-- Кнопка принудительного обновления списка игр -->
             <div style="margin-top: 10px;">
                 <button id="refresh-games-btn" class="secondary" style="font-size: 12px; padding: 5px;">🔄 Обновить список</button>
-            </div>
-            <div style="margin-top: 5px;">
-                <button id="test-rls-btn" class="secondary" style="font-size: 12px; padding: 5px;">📊 Тест данных</button>
             </div>
         </div>
 
@@ -571,16 +570,20 @@
             </div>
         </div>
 
-        <div id="logs-toggle">📋 логи</div>
+        <!-- Скрытый контейнер для логов (доступен по двойному клику на заголовке профиля) -->
         <div id="log-container"></div>
+        <div id="logs-toggle">📋 логи</div>
     </div>
 
     <script>
-        // ========== ЛОГИРОВАНИЕ ==========
+        // ========== ЛОГИРОВАНИЕ (скрытое) ==========
         const originalLog = console.log;
         const originalError = console.error;
         const logContainer = document.getElementById('log-container');
         const logsToggle = document.getElementById('logs-toggle');
+
+        // Скрываем кнопку логов, но оставляем функциональность по двойному клику на заголовке профиля
+        logsToggle.style.display = 'none';
 
         console.log = function(...args) {
             originalLog.apply(console, args);
@@ -621,13 +624,17 @@
             }
         };
 
-        logsToggle.addEventListener('click', () => {
-            if (logContainer.style.display === 'none' || logContainer.style.display === '') {
-                logContainer.style.display = 'block';
-            } else {
-                logContainer.style.display = 'none';
-            }
-        });
+        // Двойной клик по заголовку личного кабинета показывает/скрывает логи
+        const profileHeading = document.getElementById('profile-heading');
+        if (profileHeading) {
+            profileHeading.addEventListener('dblclick', () => {
+                if (logContainer.style.display === 'none' || logContainer.style.display === '') {
+                    logContainer.style.display = 'block';
+                } else {
+                    logContainer.style.display = 'none';
+                }
+            });
+        }
 
         // ========== НАСТРОЙКИ SUPABASE ==========
         const SUPABASE_URL = 'https://yldxaouqbhxgcojydrmj.supabase.co';
@@ -716,30 +723,6 @@
             }
         }
 
-        // ========== ДИАГНОСТИКА ==========
-        async function testRLS() {
-            console.log('🔍 ТЕСТИРОВАНИЕ ДОСТУПА К ДАННЫМ');
-            console.log('Текущий пользователь ID:', currentUser?.id);
-            const { data: allGames, error: allError } = await supabaseClient
-                .from('games')
-                .select('*');
-            console.log('Все игры (без фильтра):', allGames);
-            if (allError) console.error('Ошибка:', allError);
-            
-            if (currentUser) {
-                const { data: gamesAsPlayer2, error: p2Error } = await supabaseClient
-                    .from('games')
-                    .select('*')
-                    .filter('data->>player2_id', 'eq', currentUser.id);
-                console.log('Игры где я player2 (фильтр на клиенте):', gamesAsPlayer2);
-                if (p2Error) console.error('Ошибка:', p2Error);
-            }
-            alert('Тест завершён. Смотрите консоль (кнопка "📋 логи")');
-        }
-
-        document.getElementById('test-rls-btn')?.addEventListener('click', testRLS);
-        document.getElementById('refresh-games-btn')?.addEventListener('click', loadProfileScreen);
-
         // ========== ОБРАБОТЧИКИ АУТЕНТИФИКАЦИИ ==========
         document.getElementById('auth-login-btn').addEventListener('click', async () => {
             if (isAuthActionInProgress) return;
@@ -824,7 +807,7 @@
             }
             
             let html = '';
-            const reversed = [...games].reverse();
+            const reversed = [...games].reverse(); // сначала новые
             
             for (let game of reversed) {
                 try {
@@ -1172,7 +1155,9 @@
                         return;
                     } else {
                         console.log('player2_id успешно обновлён');
-                        alert('Вы успешно подключились к игре! Нажмите "Назад" для возврата в профиль.');
+                        alert('Вы успешно подключились к игре!');
+                        // После подключения обновляем профиль, чтобы сразу увидеть игру
+                        loadProfileScreen();
                     }
                 }
                 setupRealtimeChannel(gameId);
@@ -1180,7 +1165,9 @@
                 else if (gameData.status === 'partyFinished') renderStatsScreenFromData(gameData);
                 else if (gameData.status === 'finished') renderFinalStatsFromData(gameData);
                 else {
-                    alert('Ожидание начала игры от первого игрока');
+                    // Если игра ещё не началась, остаёмся на экране ожидания, но профиль уже обновлён
+                    // Поэтому после подтверждения роли переходим в профиль
+                    loadProfileScreen();
                 }
             };
         }
@@ -1571,6 +1558,7 @@
             else loadProfileScreen();
         });
         document.getElementById('back-from-join').addEventListener('click', loadProfileScreen);
+        document.getElementById('refresh-games-btn').addEventListener('click', loadProfileScreen);
 
         document.getElementById('copy-link-btn').addEventListener('click', () => {
             const linkInput = document.getElementById('game-link');
