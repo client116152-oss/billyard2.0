@@ -428,7 +428,7 @@
 
             <h3>История игр</h3>
             <div id="games-list"></div>
-            <!-- Кнопка принудительного обновления списка игр -->
+            <!-- Кнопка принудительного обновления списка игр (оставлена на случай) -->
             <div style="margin-top: 10px;">
                 <button id="refresh-games-btn" class="secondary" style="font-size: 12px; padding: 5px;">🔄 Обновить список</button>
             </div>
@@ -682,6 +682,11 @@
                 if (el) el.classList.add('hidden');
             });
             screen.classList.remove('hidden');
+            
+            // Автоматически обновляем данные профиля при его показе
+            if (screenId === 'profile-screen' && currentUser) {
+                loadProfileScreen();
+            }
         }
 
         function generateGameId() {
@@ -738,7 +743,7 @@
                 document.getElementById('auth-message').textContent = error.message;
             } else {
                 await checkSession();
-                loadProfileScreen();
+                showScreen('profile-screen'); // showScreen вызовет loadProfileScreen
             }
 
             document.getElementById('auth-login-btn').disabled = false;
@@ -775,6 +780,7 @@
 
         // ========== ЛИЧНЫЙ КАБИНЕТ ==========
         async function loadProfileScreen() {
+            if (!currentUser) return;
             document.getElementById('profile-username').textContent = `Привет, ${currentUser.username}!`;
             
             const { data: games, error } = await supabaseClient
@@ -794,7 +800,7 @@
             
             renderGamesList(games || []);
             renderOverallEfficiencyChart(games || []);
-            showScreen('profile-screen');
+            // Не вызываем showScreen, чтобы не зациклить
         }
 
         function renderGamesList(games) {
@@ -891,7 +897,7 @@
             
             if (gameError || !game || !game.data) {
                 alert('Игра не найдена');
-                loadProfileScreen();
+                showScreen('profile-screen');
                 return;
             }
             
@@ -1052,7 +1058,7 @@
             showScreen('create-game-screen');
         });
 
-        document.getElementById('back-from-create').addEventListener('click', loadProfileScreen);
+        document.getElementById('back-from-create').addEventListener('click', () => showScreen('profile-screen'));
 
         document.getElementById('create-game-btn').addEventListener('click', async () => {
             const p1Name = document.getElementById('player1-name').value.trim() || currentUser.username;
@@ -1111,7 +1117,7 @@
             if (error || !game || !game.data) {
                 console.error('Ошибка загрузки игры:', error);
                 alert('Игра не найдена. Проверьте ссылку или обратитесь к создателю игры.');
-                loadProfileScreen();
+                showScreen('profile-screen');
                 return;
             }
 
@@ -1156,8 +1162,6 @@
                     } else {
                         console.log('player2_id успешно обновлён');
                         alert('Вы успешно подключились к игре!');
-                        // После подключения обновляем профиль, чтобы сразу увидеть игру
-                        loadProfileScreen();
                     }
                 }
                 setupRealtimeChannel(gameId);
@@ -1165,9 +1169,8 @@
                 else if (gameData.status === 'partyFinished') renderStatsScreenFromData(gameData);
                 else if (gameData.status === 'finished') renderFinalStatsFromData(gameData);
                 else {
-                    // Если игра ещё не началась, остаёмся на экране ожидания, но профиль уже обновлён
-                    // Поэтому после подтверждения роли переходим в профиль
-                    loadProfileScreen();
+                    // Если игра ещё не началась, переходим в профиль (автообновление)
+                    showScreen('profile-screen');
                 }
             };
         }
@@ -1546,19 +1549,19 @@
         }
 
         // Кнопки "В профиль"
-        document.getElementById('back-to-profile-from-stats')?.addEventListener('click', loadProfileScreen);
-        document.getElementById('back-to-profile-from-final')?.addEventListener('click', loadProfileScreen);
+        document.getElementById('back-to-profile-from-stats')?.addEventListener('click', () => showScreen('profile-screen'));
+        document.getElementById('back-to-profile-from-final')?.addEventListener('click', () => showScreen('profile-screen'));
         document.getElementById('new-game-from-final').addEventListener('click', () => {
             showScreen('create-game-screen');
         });
 
-        document.getElementById('back-to-profile').addEventListener('click', loadProfileScreen);
+        document.getElementById('back-to-profile').addEventListener('click', () => showScreen('profile-screen'));
         document.getElementById('back-to-game-detail').addEventListener('click', () => {
             if (currentGameDetail) loadGameDetail(currentGameDetail.id);
-            else loadProfileScreen();
+            else showScreen('profile-screen');
         });
-        document.getElementById('back-from-join').addEventListener('click', loadProfileScreen);
-        document.getElementById('refresh-games-btn').addEventListener('click', loadProfileScreen);
+        document.getElementById('back-from-join').addEventListener('click', () => showScreen('profile-screen'));
+        document.getElementById('refresh-games-btn').addEventListener('click', () => loadProfileScreen());
 
         document.getElementById('copy-link-btn').addEventListener('click', () => {
             const linkInput = document.getElementById('game-link');
@@ -1574,7 +1577,7 @@
                 if (gameIdFromUrl) {
                     await joinGame(gameIdFromUrl);
                 } else {
-                    loadProfileScreen();
+                    showScreen('profile-screen');
                 }
             } else {
                 showScreen('auth-screen');
