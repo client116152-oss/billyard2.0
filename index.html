@@ -464,9 +464,8 @@
             </div>
         </div>
 
-        <!-- Экран подключения к игре (для второго игрока) -->
+        <!-- Экран подключения к игре (для второго игрока) - кнопка "Назад" удалена -->
         <div id="join-game-screen" class="hidden">
-            <button id="back-from-join" class="back-btn">← Назад</button>
             <h2>Подключение к игре</h2>
             <p id="game-info">Загрузка...</p>
             <div class="role-selector" id="role-selector"></div>
@@ -532,12 +531,8 @@
         let needSilentRefresh = false;
 
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
-        function showLoading() {
-            document.getElementById('loading-overlay').style.display = 'flex';
-        }
-        function hideLoading() {
-            document.getElementById('loading-overlay').style.display = 'none';
-        }
+        function showLoading() { document.getElementById('loading-overlay').style.display = 'flex'; }
+        function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 
         async function silentRefreshAfterGame() {
             if (!needSilentRefresh || !currentGameId || !currentUser) return;
@@ -555,11 +550,8 @@
                     await supabaseClient.from('games').update({ data: updatedData }).eq('id', currentGameId);
                 }
                 await loadProfileScreen();
-            } catch (err) {
-                console.error('Ошибка при фоновом обновлении:', err);
-            } finally {
-                hideLoading();
-            }
+            } catch (err) { console.error('Ошибка при фоновом обновлении:', err); }
+            finally { hideLoading(); }
         }
 
         function getGameIdFromUrl() { return new URLSearchParams(window.location.search).get('game'); }
@@ -652,9 +644,7 @@
             } catch (err) {
                 console.error('Ошибка загрузки профиля:', err);
                 alert('Не удалось загрузить игры');
-            } finally {
-                hideLoading();
-            }
+            } finally { hideLoading(); }
         }
 
         function renderGamesList(games) {
@@ -823,10 +813,8 @@
                 else if (gameData.status === 'partyFinished') renderStatsScreenFromData(gameData);
                 else if (gameData.status === 'finished') {
                     renderFinalStatsFromData(gameData);
-                    // Для завершённой игры автоматически переходим в профиль через 2 секунды, чтобы пользователь увидел статистику
-                    setTimeout(() => {
-                        goToProfileWithRefresh();
-                    }, 2000);
+                    // Автоматически переходим в профиль через 2 секунды
+                    setTimeout(() => { goToProfileWithRefresh(); }, 2000);
                 } else {
                     alert('Ожидание начала игры от первого игрока');
                 }
@@ -899,12 +887,8 @@
                 updatedData.party.score[player] += 1;
                 if (updatedData.party.score[player] >= 8) await finishParty(updatedData);
                 else await broadcastUpdate(updatedData);
-            } catch (error) {
-                console.error('Ошибка при добавлении забитого шара:', error);
-                alert('Произошла ошибка. Попробуйте ещё раз.');
-            } finally {
-                isGameActionInProgress = false;
-            }
+            } catch (error) { console.error('Ошибка при добавлении забитого шара:', error); alert('Произошла ошибка. Попробуйте ещё раз.'); }
+            finally { isGameActionInProgress = false; }
         }
 
         async function finishParty(updatedData) {
@@ -1088,7 +1072,7 @@
             showFinalPlayerStats(defaultPlayer, data);
             document.getElementById('final-stats-player1-btn').onclick = () => showFinalPlayerStats(1, data);
             document.getElementById('final-stats-player2-btn').onclick = () => showFinalPlayerStats(2, data);
-            needSilentRefresh = true; // установить флаг для фонового обновления при выходе в профиль
+            needSilentRefresh = true;
         }
         function showFinalPlayerStats(playerNum, data) {
             const div1 = document.getElementById('final-player1-stats');
@@ -1118,7 +1102,7 @@
             if (currentGameDetail) loadGameDetail(currentGameDetail.id);
             else showScreen('profile-screen');
         });
-        document.getElementById('back-from-join').addEventListener('click', () => showScreen('profile-screen'));
+        // Кнопка назад на экране подключения к игре удалена, поэтому обработчик не нужен
         document.getElementById('refresh-games-btn').addEventListener('click', loadProfileScreen);
         document.getElementById('copy-link-btn').addEventListener('click', () => {
             const linkInput = document.getElementById('game-link');
