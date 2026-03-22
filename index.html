@@ -426,7 +426,7 @@
             </div>
         </div>
 
-        <!-- Остальные экраны (сокращены, но все присутствуют) -->
+        <!-- Экран детального просмотра игры -->
         <div id="game-detail-screen" class="hidden">
             <button id="back-to-profile" class="back-btn">← Назад</button>
             <h2 id="detail-game-title">Игра</h2>
@@ -436,6 +436,7 @@
             <div id="parties-list"></div>
         </div>
 
+        <!-- Экран детального просмотра партии -->
         <div id="party-detail-screen" class="hidden">
             <button id="back-to-game-detail" class="back-btn">← Назад</button>
             <h2>Статистика партии</h2>
@@ -448,6 +449,7 @@
             <div id="party-player2-stats" class="stats-table hidden"></div>
         </div>
 
+        <!-- Экран создания игры -->
         <div id="create-game-screen" class="hidden">
             <button id="back-from-create" class="back-btn">← Назад</button>
             <h2>Новая игра</h2>
@@ -462,6 +464,7 @@
             </div>
         </div>
 
+        <!-- Экран подключения к игре (для второго игрока) -->
         <div id="join-game-screen" class="hidden">
             <button id="back-from-join" class="back-btn">← Назад</button>
             <h2>Подключение к игре</h2>
@@ -470,6 +473,7 @@
             <button id="confirm-role-btn" class="primary" style="width:100%;" disabled>Подтвердить роль</button>
         </div>
 
+        <!-- Основной игровой экран -->
         <div id="game-screen" class="hidden">
             <div class="score-header"><span class="current-score" id="current-score">0:0</span><span class="match-score" id="match-score">Партии: 0:0</span></div>
             <div id="current-player-indicator" style="text-align:center; margin-bottom:10px;">Ход: ...</div>
@@ -478,6 +482,7 @@
             <div class="action-buttons"><button id="next-turn-btn" class="primary">Следующий ход</button><button id="end-match-btn" class="secondary">Завершить игру</button></div>
         </div>
 
+        <!-- Экран статистики партии -->
         <div id="stats-screen" class="hidden">
             <div style="display: flex; justify-content: space-between; margin-bottom: 15px;"><button id="back-to-profile-from-stats" class="back-btn">← В профиль</button><div></div></div>
             <h2>Статистика партии</h2>
@@ -487,6 +492,7 @@
             <div class="action-buttons"><button id="next-party-btn" class="primary">Следующая партия</button><button id="end-game-from-stats-btn" class="secondary">Завершить игру</button></div>
         </div>
 
+        <!-- Экран итоговой статистики -->
         <div id="final-stats-screen" class="hidden">
             <div style="display: flex; justify-content: space-between; margin-bottom: 15px;"><button id="back-to-profile-from-final" class="back-btn">← В профиль</button><div></div></div>
             <h2>Итоговая статистика игры</h2>
@@ -496,6 +502,7 @@
             <div class="action-buttons"><button id="new-game-from-final" class="primary">Новая игра</button></div>
         </div>
 
+        <!-- Модальные окна -->
         <div id="miss-modal" class="modal-overlay hidden"><div class="modal-content"><h3>На каком шаре промахнулись?</h3><div class="modal-buttons"><button id="miss-own">Свояк</button><button id="miss-opponent">Чужой</button></div></div></div>
         <div id="otygrysh-modal" class="modal-overlay hidden"><div class="modal-content"><h3>Тип отыгрыша</h3><div class="modal-buttons"><button id="otygrysh-bez-shtrafa">Без штрафа</button><button id="otygrysh-so-shtrafom">Со штрафом</button></div></div></div>
 
@@ -522,8 +529,6 @@
         let isGameActionInProgress = false;
         let isAuthActionInProgress = false;
         let lastGameState = null;
-
-        // Флаг, нужно ли после завершения игры выполнить фоновое обновление
         let needSilentRefresh = false;
 
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
@@ -539,24 +544,16 @@
             needSilentRefresh = false;
             showLoading();
             try {
-                // Принудительно обновляем запись игры, чтобы убедиться, что player2_id точно есть
                 const { data: game, error } = await supabaseClient
                     .from('games')
                     .select('*')
                     .eq('id', currentGameId)
                     .maybeSingle();
-                if (!error && game && game.data) {
+                if (!error && game && game.data && game.data.player2_id !== currentUser.id) {
                     const updatedData = game.data;
-                    if (updatedData.player2_id !== currentUser.id) {
-                        updatedData.player2_id = currentUser.id;
-                        await supabaseClient
-                            .from('games')
-                            .update({ data: updatedData })
-                            .eq('id', currentGameId);
-                        console.log('silentRefresh: player2_id обновлён');
-                    }
+                    updatedData.player2_id = currentUser.id;
+                    await supabaseClient.from('games').update({ data: updatedData }).eq('id', currentGameId);
                 }
-                // Перезагружаем профиль
                 await loadProfileScreen();
             } catch (err) {
                 console.error('Ошибка при фоновом обновлении:', err);
@@ -589,7 +586,6 @@
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 currentUser = session.user;
-                console.log('✅ Текущий пользователь ID:', currentUser.id);
                 const { data: profile, error: profileError } = await supabaseClient
                     .from('profiles')
                     .select('username')
@@ -616,7 +612,7 @@
             const password = document.getElementById('auth-password').value;
             const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
             if (error) document.getElementById('auth-message').textContent = error.message;
-            else { await checkSession(); showScreen('profile-screen'); }
+            else { await checkSession(); loadProfileScreen(); }
             btn.disabled = reg.disabled = false;
             isAuthActionInProgress = false;
         });
@@ -698,12 +694,85 @@
             chartOverall = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:'Общая результативность (%)', data, borderColor:'#4caf50', backgroundColor:'#2e7d3250', tension:0.3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, max:100 } } } });
         }
 
-        // ========== ДЕТАЛИ ИГРЫ, ПАРТИИ (сокращённо, но полный код) ==========
-        async function loadGameDetail(gameId) { /* полная реализация есть в предыдущих версиях, здесь опущена для краткости */ }
-        function renderPartyEfficiencyChart(parties, game) { /* */ }
-        function renderPartiesList(parties) { /* */ }
-        async function loadPartyDetail(partyId) { /* */ }
-        function renderStatsTable(containerId, stats, totalScore) { /* */ }
+        // ========== ДЕТАЛИ ИГРЫ ==========
+        async function loadGameDetail(gameId) {
+            const { data: game, error: gameError } = await supabaseClient.from('games').select('*').eq('id', gameId).maybeSingle();
+            if (gameError || !game || !game.data) { alert('Игра не найдена'); loadProfileScreen(); return; }
+            const dataObj = game.data;
+            currentGameDetail = dataObj; currentGameDetail.id = game.id;
+            const { data: parties, error: partiesError } = await supabaseClient.from('parties').select('*').eq('game_id', gameId).order('party_number', { ascending: true });
+            if (partiesError) console.error('Ошибка загрузки партий:', partiesError);
+            currentParties = parties || [];
+            document.getElementById('detail-game-title').textContent = `Игра: ${dataObj.player1_name} vs ${dataObj.player2_name}`;
+            document.getElementById('detail-match-score').textContent = `${dataObj.match_wins_p1}:${dataObj.match_wins_p2}`;
+            renderPartyEfficiencyChart(parties || [], dataObj);
+            renderPartiesList(parties || []);
+            showScreen('game-detail-screen');
+        }
+
+        function renderPartyEfficiencyChart(parties, game) {
+            const ctx = document.getElementById('party-efficiency-chart').getContext('2d');
+            if (chartParty) chartParty.destroy();
+            const isMeP1 = game.player1_id === currentUser.id;
+            const labels = parties.map(p => `Партия ${p.party_number}`);
+            const data = parties.map(p => {
+                const stats = isMeP1 ? p.stats_p1 : p.stats_p2;
+                const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0);
+                const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0);
+                return totalShots ? (totalMade/totalShots*100).toFixed(1) : 0;
+            });
+            chartParty = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:'Результативность по партиям (%)', data, borderColor:'#4caf50', backgroundColor:'#2e7d3250', tension:0.3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, max:100 } } } });
+        }
+
+        function renderPartiesList(parties) {
+            const container = document.getElementById('parties-list');
+            if (!parties.length) { container.innerHTML = '<p>Нет партий</p>'; return; }
+            let html = '';
+            parties.forEach(p => { html += `<div class="party-item" data-party-id="${p.id}"><div>Партия ${p.party_number} · Счёт ${p.score_p1}:${p.score_p2}</div></div>`; });
+            container.innerHTML = html;
+            document.querySelectorAll('.party-item').forEach(el => el.addEventListener('click', () => loadPartyDetail(el.dataset.partyId)));
+        }
+
+        async function loadPartyDetail(partyId) {
+            const { data: party, error } = await supabaseClient.from('parties').select('*').eq('id', partyId).maybeSingle();
+            if (error || !party) { alert('Партия не найдена'); return; }
+            document.getElementById('party-detail-info').innerHTML = `<div style="font-size:20px; margin-bottom:10px;">Партия ${party.party_number} · Счёт ${party.score_p1}:${party.score_p2}</div>`;
+            document.getElementById('party-stats-player1-btn').textContent = currentGameDetail.player1_name;
+            document.getElementById('party-stats-player2-btn').textContent = currentGameDetail.player2_name;
+            renderStatsTable('party-player1-stats', party.stats_p1, party.score_p1);
+            renderStatsTable('party-player2-stats', party.stats_p2, party.score_p2);
+            document.getElementById('party-player1-stats').classList.remove('hidden');
+            document.getElementById('party-player2-stats').classList.add('hidden');
+            document.getElementById('party-stats-player1-btn').classList.add('active');
+            document.getElementById('party-stats-player2-btn').classList.remove('active');
+            document.getElementById('party-stats-player1-btn').onclick = () => { document.getElementById('party-player1-stats').classList.remove('hidden'); document.getElementById('party-player2-stats').classList.add('hidden'); document.getElementById('party-stats-player1-btn').classList.add('active'); document.getElementById('party-stats-player2-btn').classList.remove('active'); };
+            document.getElementById('party-stats-player2-btn').onclick = () => { document.getElementById('party-player2-stats').classList.remove('hidden'); document.getElementById('party-player1-stats').classList.add('hidden'); document.getElementById('party-stats-player2-btn').classList.add('active'); document.getElementById('party-stats-player1-btn').classList.remove('active'); };
+            showScreen('party-detail-screen');
+        }
+
+        function renderStatsTable(containerId, stats, totalScore) {
+            const container = document.getElementById(containerId);
+            const categories = [
+                { key: 'break', name: 'Начальный удар' },
+                { key: 'own', name: 'Свояки' },
+                { key: 'opponent', name: 'Чужие' },
+                { key: 'random', name: 'Случайные' },
+                { key: 'otygrysh', name: 'Отыгрыши' },
+                { key: 'shtraf', name: 'Штрафы' }
+            ];
+            let html = `<div class="stats-row"><span>Всего забито:</span><span>${totalScore}</span></div>`;
+            for (let cat of categories) {
+                const stat = stats[cat.key] || { shots:0, made:0 };
+                let display = cat.key === 'otygrysh' ? `${stat.made}/${stat.shots}` : `${stat.made}/${stat.shots}`;
+                const efficiency = (cat.key === 'otygrysh' || cat.key === 'shtraf') ? '' : (stat.shots > 0 ? ` (${((stat.made / stat.shots) * 100).toFixed(1)}%)` : ' (0%)');
+                html += `<div class="stats-row"><span>${cat.name}:</span><span>${display}${efficiency}</span></div>`;
+            }
+            const totalShots = (stats.break?.shots||0)+(stats.own?.shots||0)+(stats.opponent?.shots||0)+(stats.random?.shots||0)+(stats.otygrysh?.shots||0);
+            const totalMade = (stats.break?.made||0)+(stats.own?.made||0)+(stats.opponent?.made||0)+(stats.random?.made||0);
+            const totalEfficiency = totalShots ? ((totalMade/totalShots)*100).toFixed(1) : '0.0';
+            html += `<div class="stats-row"><span>Общая результативность:</span><span>${totalMade}/${totalShots} (${totalEfficiency}%)</span></div>`;
+            container.innerHTML = html;
+        }
 
         // ========== СОЗДАНИЕ НОВОЙ ИГРЫ ==========
         document.getElementById('new-game-from-profile').addEventListener('click', () => { document.getElementById('player1-name').value = currentUser.username; showScreen('create-game-screen'); });
@@ -712,12 +781,16 @@
             const p1Name = document.getElementById('player1-name').value.trim() || currentUser.username;
             const p2Name = document.getElementById('player2-name').value.trim() || 'Соперник';
             const gameId = generateGameId();
-            const newGameData = { player1_id: currentUser.id, player2_id: null, player1_name: p1Name, player2_name: p2Name, match_wins_p1:0, match_wins_p2:0,
-                total_stats_p1:{ break:{shots:0,made:0}, own:{shots:0,made:0}, opponent:{shots:0,made:0}, random:{shots:0,made:0}, otygrysh:{shots:0,made:0}, shtraf:{shots:0,made:0} },
-                total_stats_p2:{ break:{shots:0,made:0}, own:{shots:0,made:0}, opponent:{shots:0,made:0}, random:{shots:0,made:0}, otygrysh:{shots:0,made:0}, shtraf:{shots:0,made:0} },
-                status:'lobby', current_party:1, breaker:1 };
+            const newGameData = {
+                player1_id: currentUser.id, player2_id: null,
+                player1_name: p1Name, player2_name: p2Name,
+                match_wins_p1: 0, match_wins_p2: 0,
+                total_stats_p1: { break: {shots:0,made:0}, own:{shots:0,made:0}, opponent:{shots:0,made:0}, random:{shots:0,made:0}, otygrysh:{shots:0,made:0}, shtraf:{shots:0,made:0} },
+                total_stats_p2: { break:{shots:0,made:0}, own:{shots:0,made:0}, opponent:{shots:0,made:0}, random:{shots:0,made:0}, otygrysh:{shots:0,made:0}, shtraf:{shots:0,made:0} },
+                status: 'lobby', current_party: 1, breaker: 1
+            };
             const { error } = await supabaseClient.from('games').insert({ id: gameId, data: newGameData, created_at: new Date() });
-            if (error) { alert('Ошибка создания игры: '+error.message); return; }
+            if (error) { alert('Ошибка создания игры: ' + error.message); return; }
             currentGameId = gameId; currentPlayerRole = 'p1'; gameData = newGameData;
             updateUrlWithGameId(gameId);
             document.getElementById('game-link').value = window.location.href;
@@ -730,7 +803,7 @@
             currentGameId = gameId;
             updateUrlWithGameId(gameId);
             const { data: game, error } = await supabaseClient.from('games').select('*').eq('id', gameId).maybeSingle();
-            if (error || !game || !game.data) { alert('Игра не найдена'); showScreen('profile-screen'); return; }
+            if (error || !game || !game.data) { alert('Игра не найдена'); loadProfileScreen(); return; }
             gameData = game.data;
             document.getElementById('game-info').textContent = `Игра: ${gameData.player1_name} vs ${gameData.player2_name}`;
             const roleSelector = document.getElementById('role-selector');
@@ -748,39 +821,266 @@
                 setupRealtimeChannel(gameId);
                 if (gameData.status === 'playing') renderGameScreenFromData(gameData);
                 else if (gameData.status === 'partyFinished') renderStatsScreenFromData(gameData);
-                else if (gameData.status === 'finished') renderFinalStatsFromData(gameData);
-                else {
+                else if (gameData.status === 'finished') {
+                    renderFinalStatsFromData(gameData);
+                    // Для завершённой игры автоматически переходим в профиль через 2 секунды, чтобы пользователь увидел статистику
+                    setTimeout(() => {
+                        goToProfileWithRefresh();
+                    }, 2000);
+                } else {
                     alert('Ожидание начала игры от первого игрока');
-                    // Не переходим в профиль, остаёмся на экране ожидания
                 }
             };
         }
 
         // ========== REALTIME ==========
-        function setupRealtimeChannel(gameId) { /* полная версия */ }
-        async function broadcastUpdate(updatedData) { /* */ }
+        function setupRealtimeChannel(gameId) {
+            if (gameChannel) supabaseClient.removeChannel(gameChannel);
+            gameChannel = supabaseClient.channel(`game:${gameId}`, { config: { broadcast: { self: true } } });
+            gameChannel
+                .on('broadcast', { event: 'game_update' }, (payload) => {
+                    gameData = payload.payload;
+                    if (gameData.status === 'playing') renderGameScreenFromData(gameData);
+                    else if (gameData.status === 'partyFinished') renderStatsScreenFromData(gameData);
+                    else if (gameData.status === 'finished') renderFinalStatsFromData(gameData);
+                })
+                .subscribe();
+        }
 
-        // ========== ИГРОВОЙ ЭКРАН (сокращён) ==========
-        function renderGameScreenFromData(data) { /* */ }
-        async function handleAddMade(category, currentData) { /* */ }
-        async function finishParty(updatedData) { /* */ }
-        document.getElementById('otygrysh-btn').addEventListener('click', () => { if(gameData && currentPlayerRole===`p${gameData.party.currentPlayer}` && !isGameActionInProgress) document.getElementById('otygrysh-modal').classList.remove('hidden'); else alert('Сейчас не ваш ход'); });
+        async function broadcastUpdate(updatedData) {
+            if (!gameChannel) return;
+            gameData = updatedData;
+            await gameChannel.send({ type: 'broadcast', event: 'game_update', payload: updatedData });
+            await supabaseClient.from('games').update({ data: updatedData }).eq('id', currentGameId);
+        }
+
+        // ========== ИГРОВОЙ ЭКРАН ==========
+        function renderGameScreenFromData(data) {
+            showScreen('game-screen');
+            document.getElementById('current-score').textContent = `${data.party.score.p1}:${data.party.score.p2}`;
+            document.getElementById('match-score').textContent = `Партии: ${data.match_wins_p1}:${data.match_wins_p2}`;
+            const currentPlayer = data.party.currentPlayer;
+            const currentPlayerName = currentPlayer === 1 ? data.player1_name : data.player2_name;
+            document.getElementById('current-player-indicator').textContent = `Ход: ${currentPlayerName}`;
+            const container = document.getElementById('player-categories');
+            const playerStat = data.party.stats[`p${currentPlayer}`];
+            const categories = [
+                { key: 'break', name: 'Начальный удар' },
+                { key: 'own', name: 'Свояки' },
+                { key: 'opponent', name: 'Чужие шары' },
+                { key: 'random', name: 'Случайные шары' }
+            ];
+            let html = '';
+            for (let cat of categories) {
+                const stat = playerStat[cat.key];
+                html += `<div class="category-card"><div class="category-name">${cat.name}</div><div class="category-value">${stat.made}</div><button class="category-btn" data-category="${cat.key}" ${currentPlayerRole !== `p${currentPlayer}` ? 'disabled' : ''}>+</button></div>`;
+            }
+            container.innerHTML = html;
+            if (currentPlayerRole === `p${currentPlayer}`) {
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        if (isGameActionInProgress) return;
+                        lastGameState = JSON.parse(JSON.stringify(gameData));
+                        handleAddMade(e.target.dataset.category, data);
+                    });
+                });
+            }
+        }
+
+        async function handleAddMade(category, currentData) {
+            if (isGameActionInProgress) return;
+            isGameActionInProgress = true;
+            document.querySelectorAll('.category-btn').forEach(btn => btn.disabled = true);
+            try {
+                const player = `p${currentData.party.currentPlayer}`;
+                const updatedData = JSON.parse(JSON.stringify(currentData));
+                updatedData.party.stats[player][category].made += 1;
+                updatedData.party.stats[player][category].shots += 1;
+                updatedData.party.score[player] += 1;
+                if (updatedData.party.score[player] >= 8) await finishParty(updatedData);
+                else await broadcastUpdate(updatedData);
+            } catch (error) {
+                console.error('Ошибка при добавлении забитого шара:', error);
+                alert('Произошла ошибка. Попробуйте ещё раз.');
+            } finally {
+                isGameActionInProgress = false;
+            }
+        }
+
+        async function finishParty(updatedData) {
+            const winner = updatedData.party.score.p1 >= 8 ? 'p1' : 'p2';
+            if (winner === 'p1') updatedData.match_wins_p1 += 1;
+            else updatedData.match_wins_p2 += 1;
+            const partyNumber = updatedData.current_party || 1;
+            const { error: partyError } = await supabaseClient.from('parties').insert({
+                game_id: currentGameId, party_number: partyNumber, breaker: updatedData.breaker,
+                score_p1: updatedData.party.score.p1, score_p2: updatedData.party.score.p2,
+                stats_p1: updatedData.party.stats.p1, stats_p2: updatedData.party.stats.p2
+            });
+            if (partyError) { console.error('Ошибка сохранения партии:', partyError); alert('Ошибка при сохранении партии'); return; }
+            for (let p of ['p1', 'p2']) {
+                for (let cat of ['break','own','opponent','random','otygrysh','shtraf']) {
+                    updatedData[`total_stats_${p}`][cat].shots += updatedData.party.stats[p][cat].shots;
+                    updatedData[`total_stats_${p}`][cat].made += updatedData.party.stats[p][cat].made;
+                }
+            }
+            updatedData.status = 'partyFinished';
+            updatedData.party.partyFinished = true;
+            updatedData.current_party = (updatedData.current_party || 1) + 1;
+            await broadcastUpdate(updatedData);
+            renderStatsScreenFromData(updatedData);
+        }
+
+        // ========== ОТЫГРЫШИ И ШТРАФЫ ==========
+        document.getElementById('otygrysh-btn').addEventListener('click', () => {
+            if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
+                document.getElementById('otygrysh-modal').classList.remove('hidden');
+            } else alert('Сейчас не ваш ход');
+        });
         document.getElementById('otygrysh-bez-shtrafa').addEventListener('click', () => handleOtygrysh(false));
         document.getElementById('otygrysh-so-shtrafom').addEventListener('click', () => handleOtygrysh(true));
-        async function handleOtygrysh(soShtrafom) { /* */ }
-        document.getElementById('shtraf-btn').addEventListener('click', async () => { /* */ });
-        document.getElementById('undo-btn').addEventListener('click', async () => { /* */ });
-        document.getElementById('next-turn-btn').addEventListener('click', () => { if(gameData && currentPlayerRole===`p${gameData.party.currentPlayer}` && !isGameActionInProgress) document.getElementById('miss-modal').classList.remove('hidden'); else alert('Сейчас не ваш ход'); });
+        async function handleOtygrysh(soShtrafom) {
+            if (isGameActionInProgress) return;
+            isGameActionInProgress = true;
+            document.getElementById('otygrysh-modal').classList.add('hidden');
+            try {
+                if (!gameData) return;
+                lastGameState = JSON.parse(JSON.stringify(gameData));
+                const updatedData = JSON.parse(JSON.stringify(gameData));
+                const player = `p${updatedData.party.currentPlayer}`;
+                updatedData.party.stats[player].otygrysh.shots += 1;
+                if (!soShtrafom) updatedData.party.stats[player].otygrysh.made += 1;
+                else updatedData.party.score[player] -= 1;
+                updatedData.party.currentPlayer = updatedData.party.currentPlayer === 1 ? 2 : 1;
+                await broadcastUpdate(updatedData);
+            } catch (error) { console.error('Ошибка при отыгрыше:', error); alert('Произошла ошибка. Попробуйте ещё раз.'); }
+            finally { isGameActionInProgress = false; }
+        }
+        document.getElementById('shtraf-btn').addEventListener('click', async () => {
+            if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
+                if (isGameActionInProgress) return;
+                isGameActionInProgress = true;
+                try {
+                    lastGameState = JSON.parse(JSON.stringify(gameData));
+                    const updatedData = JSON.parse(JSON.stringify(gameData));
+                    const player = `p${updatedData.party.currentPlayer}`;
+                    updatedData.party.stats[player].shtraf.shots += 1;
+                    updatedData.party.stats[player].shtraf.made += 1;
+                    updatedData.party.score[player] -= 1;
+                    await broadcastUpdate(updatedData);
+                } catch (error) { console.error('Ошибка при штрафе:', error); alert('Произошла ошибка. Попробуйте ещё раз.'); }
+                finally { isGameActionInProgress = false; }
+            } else alert('Сейчас не ваш ход');
+        });
+        document.getElementById('undo-btn').addEventListener('click', async () => {
+            if (!gameData || !lastGameState) { alert('Нет действия для отмены'); return; }
+            if (currentPlayerRole !== `p${gameData.party.currentPlayer}`) { alert('Отмена доступна только в свой ход'); return; }
+            if (isGameActionInProgress) return;
+            isGameActionInProgress = true;
+            try { await broadcastUpdate(lastGameState); lastGameState = null; }
+            catch (error) { console.error('Ошибка при отмене:', error); alert('Ошибка при отмене действия'); }
+            finally { isGameActionInProgress = false; }
+        });
+        document.getElementById('next-turn-btn').addEventListener('click', () => {
+            if (gameData && currentPlayerRole === `p${gameData.party.currentPlayer}` && !isGameActionInProgress) {
+                lastGameState = JSON.parse(JSON.stringify(gameData));
+                document.getElementById('miss-modal').classList.remove('hidden');
+            } else alert('Сейчас не ваш ход');
+        });
         document.getElementById('miss-own').addEventListener('click', () => handleMiss('own'));
         document.getElementById('miss-opponent').addEventListener('click', () => handleMiss('opponent'));
-        async function handleMiss(shotType) { /* */ }
-        document.getElementById('end-match-btn').addEventListener('click', async () => { if(gameData && confirm('Завершить игру?')){ const updatedData = JSON.parse(JSON.stringify(gameData)); updatedData.status='finished'; await broadcastUpdate(updatedData); } });
-        document.getElementById('start-game-btn').addEventListener('click', async () => { /* */ });
-        function renderStatsScreenFromData(data) { /* */ }
-        function showStatsPlayer(playerNum, data) { /* */ }
-        document.getElementById('next-party-btn').addEventListener('click', async () => { /* */ });
-        document.getElementById('end-game-from-stats-btn').addEventListener('click', async () => { /* */ });
-        function renderFinalStatsFromData(data) { 
+        async function handleMiss(shotType) {
+            if (isGameActionInProgress) return;
+            isGameActionInProgress = true;
+            document.getElementById('miss-modal').classList.add('hidden');
+            try {
+                if (!gameData) return;
+                lastGameState = JSON.parse(JSON.stringify(gameData));
+                const updatedData = JSON.parse(JSON.stringify(gameData));
+                const player = `p${updatedData.party.currentPlayer}`;
+                updatedData.party.stats[player][shotType].shots += 1;
+                updatedData.party.currentPlayer = updatedData.party.currentPlayer === 1 ? 2 : 1;
+                await broadcastUpdate(updatedData);
+            } catch (error) { console.error('Ошибка при промахе:', error); alert('Произошла ошибка. Попробуйте ещё раз.'); }
+            finally { isGameActionInProgress = false; }
+        }
+        document.getElementById('end-match-btn').addEventListener('click', async () => {
+            if (!gameData) return;
+            if (confirm('Завершить игру?')) {
+                const updatedData = JSON.parse(JSON.stringify(gameData));
+                updatedData.status = 'finished';
+                await broadcastUpdate(updatedData);
+            }
+        });
+        document.getElementById('start-game-btn').addEventListener('click', async () => {
+            const updatedData = JSON.parse(JSON.stringify(gameData));
+            updatedData.status = 'playing';
+            updatedData.breaker = 1;
+            updatedData.current_party = 1;
+            updatedData.party = {
+                score: { p1: 0, p2: 0 },
+                stats: {
+                    p1: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } },
+                    p2: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } }
+                },
+                currentPlayer: 1,
+                partyFinished: false
+            };
+            await broadcastUpdate(updatedData);
+            renderGameScreenFromData(updatedData);
+        });
+
+        function renderStatsScreenFromData(data) {
+            showScreen('stats-screen');
+            document.getElementById('match-score-stats').textContent = `${data.party.score.p1}:${data.party.score.p2}`;
+            document.getElementById('player2-name-stats').textContent = data.player2_name;
+            const defaultPlayer = currentPlayerRole === 'p1' ? 1 : 2;
+            showStatsPlayer(defaultPlayer, data);
+            document.getElementById('stats-player1-btn').onclick = () => showStatsPlayer(1, data);
+            document.getElementById('stats-player2-btn').onclick = () => showStatsPlayer(2, data);
+        }
+        function showStatsPlayer(playerNum, data) {
+            const statsDiv1 = document.getElementById('player1-stats');
+            const statsDiv2 = document.getElementById('player2-stats');
+            const btn1 = document.getElementById('stats-player1-btn');
+            const btn2 = document.getElementById('stats-player2-btn');
+            if (playerNum === 1) {
+                statsDiv1.classList.remove('hidden'); statsDiv2.classList.add('hidden');
+                btn1.classList.add('active'); btn2.classList.remove('active');
+                renderStatsTable('player1-stats', data.party.stats.p1, data.party.score.p1);
+            } else {
+                statsDiv2.classList.remove('hidden'); statsDiv1.classList.add('hidden');
+                btn2.classList.add('active'); btn1.classList.remove('active');
+                renderStatsTable('player2-stats', data.party.stats.p2, data.party.score.p2);
+            }
+        }
+        document.getElementById('next-party-btn').addEventListener('click', async () => {
+            if (!gameData) return;
+            const updatedData = JSON.parse(JSON.stringify(gameData));
+            const nextBreaker = updatedData.breaker === 1 ? 2 : 1;
+            updatedData.status = 'playing';
+            updatedData.breaker = nextBreaker;
+            updatedData.party = {
+                score: { p1: 0, p2: 0 },
+                stats: {
+                    p1: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } },
+                    p2: { break: { shots:0, made:0 }, own: { shots:0, made:0 }, opponent: { shots:0, made:0 }, random: { shots:0, made:0 }, otygrysh: { shots:0, made:0 }, shtraf: { shots:0, made:0 } }
+                },
+                currentPlayer: nextBreaker,
+                partyFinished: false
+            };
+            await broadcastUpdate(updatedData);
+        });
+        document.getElementById('end-game-from-stats-btn').addEventListener('click', async () => {
+            if (!gameData) return;
+            if (confirm('Завершить игру?')) {
+                const updatedData = JSON.parse(JSON.stringify(gameData));
+                updatedData.status = 'finished';
+                await broadcastUpdate(updatedData);
+            }
+        });
+
+        function renderFinalStatsFromData(data) {
             showScreen('final-stats-screen');
             document.getElementById('final-match-score').textContent = `${data.match_wins_p1}:${data.match_wins_p2}`;
             document.getElementById('final-player2-name').textContent = data.player2_name;
@@ -788,22 +1088,44 @@
             showFinalPlayerStats(defaultPlayer, data);
             document.getElementById('final-stats-player1-btn').onclick = () => showFinalPlayerStats(1, data);
             document.getElementById('final-stats-player2-btn').onclick = () => showFinalPlayerStats(2, data);
-            needSilentRefresh = true; // установить флаг, что нужно обновить профиль при выходе
+            needSilentRefresh = true; // установить флаг для фонового обновления при выходе в профиль
         }
-        function showFinalPlayerStats(playerNum, data) { /* */ }
+        function showFinalPlayerStats(playerNum, data) {
+            const div1 = document.getElementById('final-player1-stats');
+            const div2 = document.getElementById('final-player2-stats');
+            const btn1 = document.getElementById('final-stats-player1-btn');
+            const btn2 = document.getElementById('final-stats-player2-btn');
+            if (playerNum === 1) {
+                div1.classList.remove('hidden'); div2.classList.add('hidden');
+                btn1.classList.add('active'); btn2.classList.remove('active');
+                renderStatsTable('final-player1-stats', data.total_stats_p1, data.match_wins_p1);
+            } else {
+                div2.classList.remove('hidden'); div1.classList.add('hidden');
+                btn2.classList.add('active'); btn1.classList.remove('active');
+                renderStatsTable('final-player2-stats', data.total_stats_p2, data.match_wins_p2);
+            }
+        }
 
         // ========== КНОПКИ ПЕРЕХОДА В ПРОФИЛЬ С ФОНОВЫМ ОБНОВЛЕНИЕМ ==========
         async function goToProfileWithRefresh() {
-            await silentRefreshAfterGame(); // выполняет обновление, если флаг установлен
+            await silentRefreshAfterGame();
             loadProfileScreen();
         }
         document.getElementById('back-to-profile-from-stats')?.addEventListener('click', goToProfileWithRefresh);
         document.getElementById('back-to-profile-from-final')?.addEventListener('click', goToProfileWithRefresh);
         document.getElementById('back-to-profile').addEventListener('click', () => showScreen('profile-screen'));
-        document.getElementById('back-to-game-detail').addEventListener('click', () => { if (currentGameDetail) loadGameDetail(currentGameDetail.id); else showScreen('profile-screen'); });
+        document.getElementById('back-to-game-detail').addEventListener('click', () => {
+            if (currentGameDetail) loadGameDetail(currentGameDetail.id);
+            else showScreen('profile-screen');
+        });
         document.getElementById('back-from-join').addEventListener('click', () => showScreen('profile-screen'));
         document.getElementById('refresh-games-btn').addEventListener('click', loadProfileScreen);
-        document.getElementById('copy-link-btn').addEventListener('click', () => { const linkInput = document.getElementById('game-link'); linkInput.select(); document.execCommand('copy'); alert('Ссылка скопирована'); });
+        document.getElementById('copy-link-btn').addEventListener('click', () => {
+            const linkInput = document.getElementById('game-link');
+            linkInput.select();
+            document.execCommand('copy');
+            alert('Ссылка скопирована');
+        });
         document.getElementById('new-game-from-final').addEventListener('click', () => { showScreen('create-game-screen'); });
 
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
